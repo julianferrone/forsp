@@ -65,6 +65,22 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_scan_drop() {
+        assert_eq!(
+            scan("($x) $drop"),
+            vec![
+                Token::BracketOpen,
+                Token::Dollar,
+                Token::Literal("x".to_string()),
+                Token::BracketClose,
+                Token::WhiteSpace,
+                Token::Dollar,
+                Token::Literal("drop".to_string()),
+            ]
+        )
+    }
+
+    #[test]
     fn test_scan_force() {
         assert_eq!(
             scan("($x x) $force"),
@@ -100,6 +116,44 @@ mod tests {
                 Token::WhiteSpace,
                 Token::Dollar,
                 Token::Literal("dup".to_string()),
+            ]
+        )
+    }
+
+    #[test]
+    fn test_scan_plus() {
+        assert_eq!(
+            scan("(0 swap - -) $+"),
+            vec![
+                Token::BracketOpen,
+                Token::Int(0),
+                Token::WhiteSpace,
+                Token::Literal("swap".to_owned()),
+                Token::WhiteSpace,
+                Token::Literal("-".to_owned()),
+                Token::WhiteSpace,
+                Token::Literal("-".to_owned()),
+                Token::BracketClose,
+                Token::WhiteSpace,
+                Token::Dollar,
+                Token::Literal("+".to_owned())
+            ]
+        )
+    }
+
+    #[test]
+    fn test_scan_nil() {
+        assert_eq!(
+            scan("('()) $nil"),
+            vec![
+                Token::BracketOpen,
+                Token::Quote,
+                Token::BracketOpen,
+                Token::BracketClose,
+                Token::BracketClose,
+                Token::WhiteSpace,
+                Token::Dollar,
+                Token::Literal("nil".to_string())
             ]
         )
     }
