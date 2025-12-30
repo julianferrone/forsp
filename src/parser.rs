@@ -7,13 +7,21 @@ pub enum Token {
     BracketOpen,
     BracketClose,
     WhiteSpace,
-    Atom(String),
+    Int(usize),
+    Literal(String),
 }
 
 const SPECIAL_CHARS: &str = "\'^$;()";
 
 fn is_special_char(c: char) -> bool {
     SPECIAL_CHARS.contains(c)
+}
+
+fn to_token(atom: String) -> Token {
+    match atom.parse::<usize>() {
+        Ok(int) => Token::Int(int),
+        Err(_) => Token::Literal(atom),
+    }
 }
 
 pub fn scan(input: &str) -> Vec<Token> {
@@ -24,13 +32,11 @@ pub fn scan(input: &str) -> Vec<Token> {
     let mut atom = String::new();
     while let Some(char) = next {
         if is_special_char(char) && !atom.is_empty() {
-            tokens.push(Token::Atom(atom));
+            tokens.push(to_token(atom));
             atom = String::new()
-        }
-        else if char.is_whitespace() {
+        } else if char.is_whitespace() {
             last_was_whitespace = true;
-        }
-        else {
+        } else {
             if last_was_whitespace {
                 last_was_whitespace = false;
                 tokens.push(Token::WhiteSpace);
@@ -48,7 +54,7 @@ pub fn scan(input: &str) -> Vec<Token> {
         next = chars.next()
     }
     if !atom.is_empty() {
-        tokens.push(Token::Atom(atom));
+        tokens.push(to_token(atom));
     }
     tokens
 }
