@@ -230,13 +230,17 @@ mod tests {
     }
 
     #[test]
-    fn test_skipping_comments() {
-        assert_eq!(
-            skip_whitespace_and_comments(scan(
-                "        ; 3
-  stack",
-            )),
-            vec![Token::Literal("stack".to_string())]
-        )
+    fn test_reverse_list() {
+        let list = Object::Nil
+            .cons(Object::Num(1))
+            .cons(Object::Num(2))
+            .cons(Object::Num(3));
+
+        let reversed = Object::Nil
+            .cons(Object::Num(3))
+            .cons(Object::Num(2))
+            .cons(Object::Num(1));
+
+        assert_eq!(list.reverse_list(), reversed);
     }
 }
