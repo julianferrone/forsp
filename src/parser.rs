@@ -64,8 +64,27 @@ pub fn scan(input: &str) -> VecDeque<Token> {
     tokens
 }
 
+fn skip_whitespace_and_comments(mut tokens: VecDeque<Token>) -> VecDeque<Token> {
+    let mut is_comment = false;
+    while let Some(token) = tokens.pop_front() {
+        match token {
+            Token::Semicolon => is_comment = true,
+            Token::WhiteSpace => (),
+            Token::NewLine => is_comment = false,
+            token if !is_comment => {
+                tokens.push_front(token);
+                break;
+            }
+            _ => (),
+        }
+    }
+    tokens
+}
+
 #[cfg(test)]
 mod tests {
+    use std::vec;
+
     use super::*;
 
     #[test]
@@ -179,6 +198,17 @@ mod tests {
                 Token::Literal("print".to_string()),
                 Token::NewLine
             ]
+        )
+    }
+
+    #[test]
+    fn test_skipping_comments() {
+        assert_eq!(
+            skip_whitespace_and_comments(scan(
+                "        ; 3
+  stack",
+            )),
+            vec![Token::Literal("stack".to_string())]
         )
     }
 }
