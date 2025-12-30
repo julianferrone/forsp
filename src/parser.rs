@@ -108,6 +108,146 @@ impl Object {
     }
 }
 
+#[derive(Debug, PartialEq)]
+struct Frame {
+    rev_items: Object, // reversed list
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+enum SpecialForm {
+    Quote,
+    Bind,
+    Resolve,
+}
+
+fn desugar_special_form(obj: Object, special_form: &SpecialForm) -> VecDeque<Object> {
+    match special_form {
+        SpecialForm::Quote => VecDeque::from([Object::Atom("quote".to_owned()), obj]),
+        SpecialForm::Bind => VecDeque::from([
+            Object::Atom("quote".to_owned()),
+            obj,
+            Object::Atom("pop".to_owned()),
+        ]),
+        SpecialForm::Resolve => VecDeque::from([
+            Object::Atom("quote".to_owned()),
+            obj,
+            Object::Atom("push".to_owned()),
+        ]),
+    }
+}
+
+pub fn read(mut tokens: VecDeque<Token>) -> Result<Object, String> {
+    let mut stack: Vec<Frame> = Vec::new();
+    let mut result: Option<Object> = None;
+    let mut special_form: Option<SpecialForm> = None;
+
+    let mut is_comment = false;
+    while let Some(token) = tokens.pop_front() {
+        // println!("Stack: {stack:?}, Token: {token:?}");
+        match token {
+            // Skip whitespace and comments
+            Token::Semicolon => is_comment = true,
+            Token::WhiteSpace => (),
+            Token::NewLine => is_comment = false,
+            _ if is_comment => (),
+            // Special forms
+            Token::Quote => {
+                special_form = Some(SpecialForm::Quote);
+            }
+            Token::Dollar => special_form = Some(SpecialForm::Bind),
+            Token::Caret => {
+                special_form = Some(SpecialForm::Resolve);
+            }
+            // Atoms
+            Token::Int(int) => {
+                let obj = Object::Num(int);
+                match (special_form.clone(), stack.last_mut()) {
+                    (None, None) => {
+                        if result.is_some() {
+                            return Err("Multiple top-level expressions".into());
+                        }
+                        result = Some(obj);
+                    }
+                    (None, Some(frame)) => {
+                        frame.rev_items = frame.rev_items.clone().cons(obj);
+                    }
+                    (Some(special), None) => {
+                        special_form = None;
+                        let mut expansion = Object::Nil;
+                        let mut parts = desugar_special_form(obj, &special);
+                        while let Some(part) = parts.pop_front() {
+                            expansion = expansion.cons(part);
+                        }
+                        if result.is_some() {
+                            return Err("Multiple top-level expressions".into());
+                        }
+                        result = Some(expansion);
+                    }
+                    (Some(special), Some(frame)) => {
+                        special_form = None;
+                        let mut parts = desugar_special_form(obj, &special);
+                        while let Some(part) = parts.pop_front() {
+                            frame.rev_items = frame.rev_items.clone().cons(part);
+                        }
+                    }
+                }
+            }
+            Token::Literal(name) => {
+                let obj = Object::Atom(name);
+                match (special_form.clone(), stack.last_mut()) {
+                    (None, None) => {
+                        if result.is_some() {
+                            return Err("Multiple top-level expressions".into());
+                        }
+                        result = Some(obj);
+                    }
+                    (None, Some(frame)) => {
+                        frame.rev_items = frame.rev_items.clone().cons(obj);
+                    }
+                    (Some(special), None) => {
+                        special_form = None;
+                        let mut expansion = Object::Nil;
+                        let mut parts = desugar_special_form(obj, &special);
+                        while let Some(part) = parts.pop_front() {
+                            expansion = expansion.cons(part);
+                        }
+                        if result.is_some() {
+                            return Err("Multiple top-level expressions".into());
+                        }
+                        result = Some(expansion);
+                    }
+                    (Some(special), Some(frame)) => {
+                        special_form = None;
+                        let mut parts = desugar_special_form(obj, &special);
+                        while let Some(part) = parts.pop_front() {
+                            frame.rev_items = frame.rev_items.clone().cons(part);
+                        }
+                    }
+                }
+            }
+            // List
+            Token::BracketOpen => stack.push(Frame {
+                rev_items: Object::Nil,
+            }),
+            Token::BracketClose => {
+                let frame = stack.pop().ok_or("Unexpected ')'")?;
+                let list = frame.rev_items.reverse_list();
+                if let Some(parent) = stack.last_mut() {
+                    parent.rev_items = parent.rev_items.clone().cons(list);
+                } else {
+                    if result.is_some() {
+                        return Err("Multiple top-level expressions".into());
+                    }
+                    result = Some(list);
+                }
+            }
+        }
+    }
+    if !stack.is_empty() {
+        return Err("Unclosed '('".into());
+    }
+    result.ok_or("Empty input".into())
+}
 
 #[cfg(test)]
 mod tests {
@@ -242,5 +382,18 @@ mod tests {
             .cons(Object::Num(1));
 
         assert_eq!(list.reverse_list(), reversed);
+    }
+
+    #[test]
+    fn test_reading_force() {
+        let scanned = scan("($x x)");
+        let read = read(scanned).unwrap();
+        let expected = Object::Nil
+            .cons(Object::Atom("x".into()))
+            .cons(Object::Atom("pop".into()))
+            .cons(Object::Atom("x".into()))
+            .cons(Object::Atom("quote".into()));
+        println!("{read}");
+        assert_eq!(read, expected);
     }
 }
