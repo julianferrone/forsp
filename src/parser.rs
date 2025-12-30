@@ -64,6 +64,20 @@ pub fn scan(input: &str) -> VecDeque<Token> {
     tokens
 }
 
+enum Object {
+    Atom(String),
+    Num(isize),
+    Pair {
+        car: Box<Object>,
+        cdr: Box<Object>,
+    },
+    Closure {
+        body: Box<Object>,
+        environment: Box<Object>,
+    },
+    Primitive(fn(Object) -> Object),
+}
+
 fn skip_whitespace_and_comments(mut tokens: VecDeque<Token>) -> VecDeque<Token> {
     let mut is_comment = false;
     while let Some(token) = tokens.pop_front() {
