@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     Quote,
     Caret,
@@ -6,7 +6,7 @@ pub enum Token {
     Semicolon, // Skip line-comments
     BracketOpen,
     BracketClose,
-    Whitespace,
+    WhiteSpace,
     Atom(String),
 }
 
@@ -18,7 +18,7 @@ fn is_special_char(c: char) -> bool {
 
 pub fn scan(input: &str) -> Vec<Token> {
     let mut tokens = vec![];
-    let mut last_parsed = Token::Whitespace;
+    let mut last_was_whitespace = false;
     let mut chars = input.chars();
     let mut next = chars.next();
     let mut atom = String::new();
@@ -27,15 +27,23 @@ pub fn scan(input: &str) -> Vec<Token> {
             tokens.push(Token::Atom(atom));
             atom = String::new()
         }
-        match char {
-            '\'' => tokens.push(Token::Quote),
-            '^' => tokens.push(Token::Caret),
-            '$' => tokens.push(Token::Dollar),
-            ';' => tokens.push(Token::Semicolon),
-            '(' => tokens.push(Token::BracketOpen),
-            ')' => tokens.push(Token::BracketClose),
-            c if c.is_whitespace() => (),
-            _ => atom.push(char),
+        else if char.is_whitespace() {
+            last_was_whitespace = true;
+        }
+        else {
+            if last_was_whitespace {
+                last_was_whitespace = false;
+                tokens.push(Token::WhiteSpace);
+            }
+            match char {
+                '\'' => tokens.push(Token::Quote),
+                '^' => tokens.push(Token::Caret),
+                '$' => tokens.push(Token::Dollar),
+                ';' => tokens.push(Token::Semicolon),
+                '(' => tokens.push(Token::BracketOpen),
+                ')' => tokens.push(Token::BracketClose),
+                _ => atom.push(char),
+            }
         }
         next = chars.next()
     }
