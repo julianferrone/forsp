@@ -31,10 +31,11 @@ pub fn scan(input: &str) -> Vec<Token> {
     let mut next = chars.next();
     let mut atom = String::new();
     while let Some(char) = next {
-        if is_special_char(char) && !atom.is_empty() {
+        if !atom.is_empty() && (is_special_char(char) || char.is_whitespace()) {
             tokens.push(to_token(atom));
             atom = String::new()
-        } else if char.is_whitespace() {
+        }
+        if char.is_whitespace() {
             last_was_whitespace = true;
         } else {
             if last_was_whitespace {
@@ -57,4 +58,49 @@ pub fn scan(input: &str) -> Vec<Token> {
         tokens.push(to_token(atom));
     }
     tokens
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_scan_force() {
+        assert_eq!(
+            scan("($x x) $force"),
+            vec![
+                Token::BracketOpen,
+                Token::Dollar,
+                Token::Literal("x".to_string()),
+                Token::WhiteSpace,
+                Token::Literal("x".to_string()),
+                Token::BracketClose,
+                Token::WhiteSpace,
+                Token::Dollar,
+                Token::Literal("force".to_string()),
+            ]
+        )
+    }
+
+    #[test]
+    fn test_scan_dup() {
+        assert_eq!(
+            scan("($x ^x ^x) $dup"),
+            vec![
+                Token::BracketOpen,
+                Token::Dollar,
+                Token::Literal("x".to_string()),
+                Token::WhiteSpace,
+                Token::Caret,
+                Token::Literal("x".to_string()),
+                Token::WhiteSpace,
+                Token::Caret,
+                Token::Literal("x".to_string()),
+                Token::BracketClose,
+                Token::WhiteSpace,
+                Token::Dollar,
+                Token::Literal("dup".to_string()),
+            ]
+        )
+    }
 }
