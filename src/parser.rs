@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     Quote,
@@ -25,15 +27,15 @@ fn to_token(atom: String) -> Token {
     }
 }
 
-pub fn scan(input: &str) -> Vec<Token> {
-    let mut tokens = vec![];
+pub fn scan(input: &str) -> VecDeque<Token> {
+    let mut tokens = VecDeque::new();
     let mut last_was_whitespace = false;
     let mut chars = input.chars();
     let mut next = chars.next();
     let mut atom = String::new();
     while let Some(char) = next {
         if !atom.is_empty() && (is_special_char(char) || char.is_whitespace()) {
-            tokens.push(to_token(atom));
+            tokens.push_back(to_token(atom));
             atom = String::new()
         }
         if char != '\n' && char.is_whitespace() {
@@ -41,23 +43,23 @@ pub fn scan(input: &str) -> Vec<Token> {
         } else {
             if last_was_whitespace {
                 last_was_whitespace = false;
-                tokens.push(Token::WhiteSpace);
+                tokens.push_back(Token::WhiteSpace);
             }
             match char {
-                '\'' => tokens.push(Token::Quote),
-                '^' => tokens.push(Token::Caret),
-                '$' => tokens.push(Token::Dollar),
-                ';' => tokens.push(Token::Semicolon),
-                '(' => tokens.push(Token::BracketOpen),
-                ')' => tokens.push(Token::BracketClose),
-                '\n' => tokens.push(Token::NewLine),
+                '\'' => tokens.push_back(Token::Quote),
+                '^' => tokens.push_back(Token::Caret),
+                '$' => tokens.push_back(Token::Dollar),
+                ';' => tokens.push_back(Token::Semicolon),
+                '(' => tokens.push_back(Token::BracketOpen),
+                ')' => tokens.push_back(Token::BracketClose),
+                '\n' => tokens.push_back(Token::NewLine),
                 _ => atom.push(char),
             }
         }
         next = chars.next()
     }
     if !atom.is_empty() {
-        tokens.push(to_token(atom));
+        tokens.push_back(to_token(atom));
     }
     tokens
 }
