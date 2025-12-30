@@ -64,9 +64,11 @@ pub fn scan(input: &str) -> VecDeque<Token> {
     tokens
 }
 
-enum Object {
+#[derive(Debug, PartialEq, Clone)]
+pub enum Object {
+    Nil,
     Atom(String),
-    Num(isize),
+    Num(usize),
     Pair {
         car: Box<Object>,
         cdr: Box<Object>,
@@ -78,22 +80,34 @@ enum Object {
     Primitive(fn(Object) -> Object),
 }
 
-fn skip_whitespace_and_comments(mut tokens: VecDeque<Token>) -> VecDeque<Token> {
-    let mut is_comment = false;
-    while let Some(token) = tokens.pop_front() {
-        match token {
-            Token::Semicolon => is_comment = true,
-            Token::WhiteSpace => (),
-            Token::NewLine => is_comment = false,
-            token if !is_comment => {
-                tokens.push_front(token);
-                break;
-            }
-            _ => (),
+impl Object {
+    fn cons(self, car: Object) -> Object {
+        Object::Pair {
+            car: Box::new(car),
+            cdr: Box::new(self),
         }
     }
-    tokens
+
+    fn cons_mut(mut self, car: Object) {
+        let old = self;
+        self = Object::Pair {
+            car: Box::new(car),
+            cdr: Box::new(old),
+        }
+    }
+
+    fn reverse_list(self) -> Object {
+        let mut list = self;
+        let mut result = Object::Nil;
+
+        while let Object::Pair { car, cdr } = list {
+            result = result.cons(*car);
+            list = *cdr;
+        }
+        result
+    }
 }
+
 
 #[cfg(test)]
 mod tests {
