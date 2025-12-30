@@ -7,11 +7,12 @@ pub enum Token {
     BracketOpen,
     BracketClose,
     WhiteSpace,
+    NewLine,
     Int(usize),
     Literal(String),
 }
 
-const SPECIAL_CHARS: &str = "\'^$;()";
+const SPECIAL_CHARS: &str = "\'^$;()\n";
 
 fn is_special_char(c: char) -> bool {
     SPECIAL_CHARS.contains(c)
@@ -35,7 +36,7 @@ pub fn scan(input: &str) -> Vec<Token> {
             tokens.push(to_token(atom));
             atom = String::new()
         }
-        if char.is_whitespace() {
+        if char != '\n' && char.is_whitespace() {
             last_was_whitespace = true;
         } else {
             if last_was_whitespace {
@@ -49,6 +50,7 @@ pub fn scan(input: &str) -> Vec<Token> {
                 ';' => tokens.push(Token::Semicolon),
                 '(' => tokens.push(Token::BracketOpen),
                 ')' => tokens.push(Token::BracketClose),
+                '\n' => tokens.push(Token::NewLine),
                 _ => atom.push(char),
             }
         }
@@ -154,6 +156,26 @@ mod tests {
                 Token::WhiteSpace,
                 Token::Dollar,
                 Token::Literal("nil".to_string())
+            ]
+        )
+    }
+
+    #[test]
+    fn test_scan_newline() {
+        assert_eq!(
+            scan(
+                "4 3
+                print
+                "
+            ),
+            vec![
+                Token::Int(4),
+                Token::WhiteSpace,
+                Token::Int(3),
+                Token::NewLine,
+                Token::WhiteSpace,
+                Token::Literal("print".to_string()),
+                Token::NewLine
             ]
         )
     }
