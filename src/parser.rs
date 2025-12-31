@@ -98,46 +98,50 @@ impl Sexpr {
 }
 
 enum Task<'a> {
-    PrintObject(&'a Sexpr),
+    PrintSexpr(&'a Sexpr),
     PrintStr(&'static str),
 }
 
 impl std::fmt::Display for Sexpr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut stack: VecDeque<Task> = VecDeque::new();
-        stack.push_back(Task::PrintObject(self));
+        let mut stack: Vec<Task> = Vec::new();
+        stack.push(Task::PrintSexpr(self));
 
-        while let Some(task) = stack.pop_front() {
+        while let Some(task) = stack.pop() {
             match task {
-                Task::PrintObject(obj) => match obj {
+                Task::PrintSexpr(obj) => match obj {
                     Sexpr::Nil => write!(f, "()")?,
                     Sexpr::Atom(name) => write!(f, "{name}")?,
                     Sexpr::Num(num) => write!(f, "{num}")?,
                     Sexpr::Pair(car, cdr) => {
-                        stack.push_back(Task::PrintStr("("));
+                        stack.push(Task::PrintStr(")"));
 
                         let mut cur = obj;
-                        let mut first = true;
+                        let mut elems: Vec<&Sexpr> = Vec::new();
+
                         loop {
                             match cur {
                                 Sexpr::Pair(car, cdr) => {
-                                    if !first {
-                                        stack.push_back(Task::PrintStr(" "));
-                                    }
-                                    stack.push_back(Task::PrintObject(car));
+                                    elems.push(car);
                                     cur = cdr;
-                                    first = false;
                                 }
                                 Sexpr::Nil => break,
                                 tail => {
-                                    stack.push_back(Task::PrintStr(" . "));
-                                    stack.push_back(Task::PrintObject(tail));
+                                    stack.push(Task::PrintStr(" . "));
+                                    stack.push(Task::PrintSexpr(tail));
                                     break;
                                 }
                             }
                         }
 
-                        stack.push_back(Task::PrintStr(")"));
+                        for (i, e) in elems.iter().rev().enumerate() {
+                            if i > 0 {
+                                stack.push(Task::PrintStr(" "));
+                            }
+                            stack.push(Task::PrintSexpr(e));
+                        }
+
+                        stack.push(Task::PrintStr("("));
                     }
                 },
                 Task::PrintStr(s) => write!(f, "{s}")?,
@@ -438,18 +442,21 @@ mod tests {
     #[test]
     fn test_display_pair() {
         let read = read(scan("(x y z)")).unwrap();
-        assert_eq!(
-            format!("{read}"),
-            "(x y z)"
-        )
+        assert_eq!(format!("{read}"), "(x y z)")
     }
 
     #[test]
     fn test_display_force() {
         let read = read(scan("($x x)")).unwrap();
+        assert_eq!(format!("{read}"), "(quote x pop x)")
+    }
+
+    #[test]
+    fn test_display_dup() {
+        let read = read(scan("(($x ^x ^x) $dup)")).unwrap();
         assert_eq!(
             format!("{read}"),
-            "(quote x pop x)"
+            "((quote x pop quote x push quote x push) quote dup pop)"
         )
     }
 }
