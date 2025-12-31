@@ -77,25 +77,19 @@ pub enum Sexpr {
     Nil,
     Atom(String),
     Num(usize),
-    Pair {
-        car: Box<Sexpr>,
-        cdr: Box<Sexpr>,
-    }
+    Pair(Box<Sexpr>, Box<Sexpr>),
 }
 
 impl Sexpr {
     fn cons(self, car: Sexpr) -> Sexpr {
-        Sexpr::Pair {
-            car: Box::new(car),
-            cdr: Box::new(self),
-        }
+        Sexpr::Pair(Box::new(car), Box::new(self))
     }
 
     fn reverse_list(self) -> Sexpr {
         let mut list = self;
         let mut result = Sexpr::Nil;
 
-        while let Sexpr::Pair { car, cdr } = list {
+        while let Sexpr::Pair(car, cdr) = list {
             result = result.cons(*car);
             list = *cdr;
         }
@@ -119,14 +113,14 @@ impl std::fmt::Display for Sexpr {
                     Sexpr::Nil => write!(f, "()")?,
                     Sexpr::Atom(name) => write!(f, "{name}")?,
                     Sexpr::Num(num) => write!(f, "{num}")?,
-                    Sexpr::Pair { car, cdr } => {
+                    Sexpr::Pair(car, cdr) => {
                         stack.push(Task::PrintStr(")"));
 
                         let mut cur = obj;
                         let mut first = true;
                         loop {
                             match cur {
-                                Sexpr::Pair { car, cdr } => {
+                                Sexpr::Pair(car, cdr) => {
                                     if !first {
                                         stack.push(Task::PrintStr(" "));
                                     }
