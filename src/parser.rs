@@ -108,6 +108,65 @@ impl Object {
     }
 }
 
+enum Task<'a> {
+    PrintObject(&'a Object),
+    PrintStr(&'static str),
+}
+
+impl std::fmt::Display for Object {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut stack: Vec<Task> = Vec::new();
+        stack.push(Task::PrintObject(self));
+
+        while let Some(task) = stack.pop() {
+            match task {
+                Task::PrintObject(obj) => match obj {
+                    Object::Nil => write!(f, "()")?,
+                    Object::Atom(name) => write!(f, "{name}")?,
+                    Object::Num(num) => write!(f, "{num}")?,
+                    Object::Pair { car, cdr } => {
+                        stack.push(Task::PrintStr(")"));
+
+                        let mut cur = obj;
+                        let mut first = true;
+                        loop {
+                            match cur {
+                                Object::Pair { car, cdr } => {
+                                    if !first {
+                                        stack.push(Task::PrintStr(" "));
+                                    }
+                                    stack.push(Task::PrintObject(car));
+                                    cur = cdr;
+                                    first = false;
+                                }
+                                Object::Nil => break,
+                                tail => {
+                                    stack.push(Task::PrintStr(" . "));
+                                    stack.push(Task::PrintObject(tail));
+                                    break;
+                                }
+                            }
+                        }
+
+                        stack.push(Task::PrintStr("("));
+                    }
+                    Object::Closure {
+                        body,
+                        environment: _,
+                    } => {
+                        stack.push(Task::PrintStr(">"));
+                        stack.push(Task::PrintObject(body));
+                        stack.push(Task::PrintStr("CLOSURE<"))
+                    }
+                    Object::Primitive(_) => write!(f, "PRIMITIVE")?,
+                },
+                Task::PrintStr(s) => write!(f, "{s}")?,
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, PartialEq)]
 struct Frame {
     rev_items: Object, // reversed list
