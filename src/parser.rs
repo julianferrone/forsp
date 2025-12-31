@@ -73,42 +73,29 @@ pub fn scan(input: &str) -> VecDeque<Token> {
 ////////////////////////////////////////////////////////////
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum Object {
+pub enum Sexpr {
     Nil,
     Atom(String),
     Num(usize),
     Pair {
-        car: Box<Object>,
-        cdr: Box<Object>,
-    },
-    Closure {
-        body: Box<Object>,
-        environment: Box<Object>,
-    },
-    Primitive(fn(Object) -> Object),
+        car: Box<Sexpr>,
+        cdr: Box<Sexpr>,
+    }
 }
 
-impl Object {
-    fn cons(self, car: Object) -> Object {
-        Object::Pair {
+impl Sexpr {
+    fn cons(self, car: Sexpr) -> Sexpr {
+        Sexpr::Pair {
             car: Box::new(car),
             cdr: Box::new(self),
         }
     }
 
-    fn cons_mut(mut self, car: Object) {
-        let old = self;
-        self = Object::Pair {
-            car: Box::new(car),
-            cdr: Box::new(old),
-        }
-    }
-
-    fn reverse_list(self) -> Object {
+    fn reverse_list(self) -> Sexpr {
         let mut list = self;
-        let mut result = Object::Nil;
+        let mut result = Sexpr::Nil;
 
-        while let Object::Pair { car, cdr } = list {
+        while let Sexpr::Pair { car, cdr } = list {
             result = result.cons(*car);
             list = *cdr;
         }
@@ -117,11 +104,11 @@ impl Object {
 }
 
 enum Task<'a> {
-    PrintObject(&'a Object),
+    PrintObject(&'a Sexpr),
     PrintStr(&'static str),
 }
 
-impl std::fmt::Display for Object {
+impl std::fmt::Display for Sexpr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut stack: Vec<Task> = Vec::new();
         stack.push(Task::PrintObject(self));
@@ -129,17 +116,17 @@ impl std::fmt::Display for Object {
         while let Some(task) = stack.pop() {
             match task {
                 Task::PrintObject(obj) => match obj {
-                    Object::Nil => write!(f, "()")?,
-                    Object::Atom(name) => write!(f, "{name}")?,
-                    Object::Num(num) => write!(f, "{num}")?,
-                    Object::Pair { car, cdr } => {
+                    Sexpr::Nil => write!(f, "()")?,
+                    Sexpr::Atom(name) => write!(f, "{name}")?,
+                    Sexpr::Num(num) => write!(f, "{num}")?,
+                    Sexpr::Pair { car, cdr } => {
                         stack.push(Task::PrintStr(")"));
 
                         let mut cur = obj;
                         let mut first = true;
                         loop {
                             match cur {
-                                Object::Pair { car, cdr } => {
+                                Sexpr::Pair { car, cdr } => {
                                     if !first {
                                         stack.push(Task::PrintStr(" "));
                                     }
@@ -147,7 +134,7 @@ impl std::fmt::Display for Object {
                                     cur = cdr;
                                     first = false;
                                 }
-                                Object::Nil => break,
+                                Sexpr::Nil => break,
                                 tail => {
                                     stack.push(Task::PrintStr(" . "));
                                     stack.push(Task::PrintObject(tail));
@@ -158,15 +145,6 @@ impl std::fmt::Display for Object {
 
                         stack.push(Task::PrintStr("("));
                     }
-                    Object::Closure {
-                        body,
-                        environment: _,
-                    } => {
-                        stack.push(Task::PrintStr(">"));
-                        stack.push(Task::PrintObject(body));
-                        stack.push(Task::PrintStr("CLOSURE<"))
-                    }
-                    Object::Primitive(_) => write!(f, "PRIMITIVE")?,
                 },
                 Task::PrintStr(s) => write!(f, "{s}")?,
             }
@@ -177,7 +155,7 @@ impl std::fmt::Display for Object {
 
 #[derive(Debug, PartialEq)]
 struct Frame {
-    rev_items: Object, // reversed list
+    rev_items: Sexpr, // reversed list
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -187,25 +165,25 @@ enum SpecialForm {
     Resolve,
 }
 
-fn desugar_special_form(obj: Object, special_form: &SpecialForm) -> VecDeque<Object> {
+fn desugar_special_form(obj: Sexpr, special_form: &SpecialForm) -> VecDeque<Sexpr> {
     match special_form {
-        SpecialForm::Quote => VecDeque::from([Object::Atom("quote".to_owned()), obj]),
+        SpecialForm::Quote => VecDeque::from([Sexpr::Atom("quote".to_owned()), obj]),
         SpecialForm::Bind => VecDeque::from([
-            Object::Atom("quote".to_owned()),
+            Sexpr::Atom("quote".to_owned()),
             obj,
-            Object::Atom("pop".to_owned()),
+            Sexpr::Atom("pop".to_owned()),
         ]),
         SpecialForm::Resolve => VecDeque::from([
-            Object::Atom("quote".to_owned()),
+            Sexpr::Atom("quote".to_owned()),
             obj,
-            Object::Atom("push".to_owned()),
+            Sexpr::Atom("push".to_owned()),
         ]),
     }
 }
 
-pub fn read(mut tokens: VecDeque<Token>) -> Result<Object, String> {
+pub fn read(mut tokens: VecDeque<Token>) -> Result<Sexpr, String> {
     let mut stack: Vec<Frame> = Vec::new();
-    let mut result: Option<Object> = None;
+    let mut result: Option<Sexpr> = None;
     let mut special_form: Option<SpecialForm> = None;
 
     let mut is_comment = false;
@@ -227,7 +205,7 @@ pub fn read(mut tokens: VecDeque<Token>) -> Result<Object, String> {
             }
             // Atoms
             Token::Int(int) => {
-                let obj = Object::Num(int);
+                let obj = Sexpr::Num(int);
                 match (special_form.clone(), stack.last_mut()) {
                     (None, None) => {
                         if result.is_some() {
@@ -240,7 +218,7 @@ pub fn read(mut tokens: VecDeque<Token>) -> Result<Object, String> {
                     }
                     (Some(special), None) => {
                         special_form = None;
-                        let mut expansion = Object::Nil;
+                        let mut expansion = Sexpr::Nil;
                         let mut parts = desugar_special_form(obj, &special);
                         while let Some(part) = parts.pop_front() {
                             expansion = expansion.cons(part);
@@ -260,7 +238,7 @@ pub fn read(mut tokens: VecDeque<Token>) -> Result<Object, String> {
                 }
             }
             Token::Literal(name) => {
-                let obj = Object::Atom(name);
+                let obj = Sexpr::Atom(name);
                 match (special_form.clone(), stack.last_mut()) {
                     (None, None) => {
                         if result.is_some() {
@@ -273,7 +251,7 @@ pub fn read(mut tokens: VecDeque<Token>) -> Result<Object, String> {
                     }
                     (Some(special), None) => {
                         special_form = None;
-                        let mut expansion = Object::Nil;
+                        let mut expansion = Sexpr::Nil;
                         let mut parts = desugar_special_form(obj, &special);
                         while let Some(part) = parts.pop_front() {
                             expansion = expansion.cons(part);
@@ -294,7 +272,7 @@ pub fn read(mut tokens: VecDeque<Token>) -> Result<Object, String> {
             }
             // List
             Token::BracketOpen => stack.push(Frame {
-                rev_items: Object::Nil,
+                rev_items: Sexpr::Nil,
             }),
             Token::BracketClose => {
                 let frame = stack.pop().ok_or("Unexpected ')'")?;
@@ -438,15 +416,15 @@ mod tests {
 
     #[test]
     fn test_reverse_list() {
-        let list = Object::Nil
-            .cons(Object::Num(1))
-            .cons(Object::Num(2))
-            .cons(Object::Num(3));
+        let list = Sexpr::Nil
+            .cons(Sexpr::Num(1))
+            .cons(Sexpr::Num(2))
+            .cons(Sexpr::Num(3));
 
-        let reversed = Object::Nil
-            .cons(Object::Num(3))
-            .cons(Object::Num(2))
-            .cons(Object::Num(1));
+        let reversed = Sexpr::Nil
+            .cons(Sexpr::Num(3))
+            .cons(Sexpr::Num(2))
+            .cons(Sexpr::Num(1));
 
         assert_eq!(list.reverse_list(), reversed);
     }
@@ -455,11 +433,11 @@ mod tests {
     fn test_reading_force() {
         let scanned = scan("($x x)");
         let read = read(scanned).unwrap();
-        let expected = Object::Nil
-            .cons(Object::Atom("x".into()))
-            .cons(Object::Atom("pop".into()))
-            .cons(Object::Atom("x".into()))
-            .cons(Object::Atom("quote".into()));
+        let expected = Sexpr::Nil
+            .cons(Sexpr::Atom("x".into()))
+            .cons(Sexpr::Atom("pop".into()))
+            .cons(Sexpr::Atom("x".into()))
+            .cons(Sexpr::Atom("quote".into()));
         println!("{read}");
         assert_eq!(read, expected);
     }
