@@ -1,5 +1,9 @@
 use std::collections::VecDeque;
 
+////////////////////////////////////////////////////////////
+//                         Lexing                         //
+////////////////////////////////////////////////////////////
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     Quote,
@@ -63,6 +67,10 @@ pub fn scan(input: &str) -> VecDeque<Token> {
     }
     tokens
 }
+
+////////////////////////////////////////////////////////////
+//                         Reading                        //
+////////////////////////////////////////////////////////////
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Object {
