@@ -114,9 +114,17 @@ struct State {
     env: Object,
 }
 
-//////////               Environment              //////////
-
 impl State {
+    fn new() -> State {
+        State {
+            interned_atoms: Object::Nil,
+            stack: Object::Nil,
+            env: Object::Nil,
+        }
+    }
+
+    //////////               Environment              //////////
+
     fn env_find(&self, key: Object) -> Result<Object, String> {
         if !key.is_atom() {
             return Err("Expected key to be Object::Atom".into());
@@ -150,5 +158,31 @@ impl State {
 
     fn env_define_prim(self, name: &str, func: fn(Object) -> Object) -> State {
         return self.env_define(Object::Atom(name.into()), Object::Primitive(func));
+    }
+
+    //////////         Value Stack Operations         //////////
+
+    fn push(self, object: Object) -> State {
+        State {
+            interned_atoms: self.interned_atoms,
+            stack: self.stack.cons(object),
+            env: self.env,
+        }
+    }
+
+    fn pop(self) -> (Option<Object>, State) {
+        match self.stack {
+            Object::Pair(car, cdr) => {
+                let top = Some(*car);
+                let state = State {
+                    interned_atoms: self.interned_atoms,
+                    stack: *cdr,
+                    env: self.env,
+                };
+                (top, state)
+            }
+            Object::Nil => (None, self),
+            _ => panic!("Stack should only be a Pair or Nil"),
+        }
     }
 }
