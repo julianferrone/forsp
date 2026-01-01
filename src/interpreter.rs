@@ -185,4 +185,49 @@ impl State {
             _ => panic!("Stack should only be a Pair or Nil"),
         }
     }
+
+    //////////                  Eval                  //////////
+    fn compute(self, comp: Object, env: Object) -> State {
+        let mut comp = comp.clone();
+        let mut state = self.clone();
+        loop {
+            match comp {
+                Object::Nil => return state,
+                Object::Pair(cmd, cdr) => {
+                    comp = *cdr;
+                    if *cmd == Object::Atom("quote".into()) {
+                        match comp {
+                            Object::Pair(comp_car, comp_cdr) => {
+                                state = state.push(*comp_car);
+                                comp = *comp_cdr;
+                            }
+                            _ => unreachable!("Expected data following a quote form"),
+                        }
+                    } else {
+                        state = state.eval(*cmd);
+                    }
+                }
+                _ => unreachable!("Closure bodies should only be Nil or Pair"),
+            }
+        }
+    }
+
+    fn eval(self, expr: Object) -> State {
+        match expr {
+            Object::Nil | Object::Pair(_, _) => {
+                let env = self.env.clone();
+                self.push(Object::make_closure(expr, env))
+            }
+            Object::Atom(_) => {
+                let value = env_find(&self.env, expr);
+                match value {
+                    Ok(_) => todo!(),
+                    Err(_) => self,
+                }
+            }
+            Object::Num(_) => self.push(expr),
+            Object::Closure(body, env) => self.compute(*body, *env),
+            Object::Primitive(func) => func(self),
+        }
+    }
 }
