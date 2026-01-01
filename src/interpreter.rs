@@ -48,6 +48,20 @@ impl Object {
     }
 }
 
+impl From<Sexpr> for Object {
+    fn from(value: Sexpr) -> Self {
+        match value {
+            Sexpr::Nil => Object::Nil,
+            Sexpr::Atom(name) => Object::Atom(name),
+            Sexpr::Num(num) => Object::Num(num),
+            Sexpr::Pair(sexpr, sexpr1) => Object::Pair(
+                Box::new((*sexpr).into()),
+                Box::new((*sexpr1).into())
+            ),
+        }
+    }
+}
+
 enum Task<'a> {
     PrintObject(&'a Object),
     PrintStr(&'static str),
@@ -187,6 +201,7 @@ impl State {
     }
 
     //////////                  Eval                  //////////
+
     fn compute(self, comp: Object, env: Object) -> State {
         let mut comp = comp.clone();
         let mut state = self.clone();
