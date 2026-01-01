@@ -459,4 +459,13 @@ mod tests {
             "((quote x pop quote x push quote x push) quote dup pop)"
         )
     }
+
+    #[test]
+    fn test_display_assoc() {
+        let read = read(scan("((a b) (c d))")).unwrap();
+        assert_eq!(
+            format!("{read}"),
+            "((a b) (c d))"
+        )
+    }
 }
