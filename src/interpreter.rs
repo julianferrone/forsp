@@ -42,6 +42,10 @@ impl Object {
     fn cons(self, car: Object) -> Object {
         Object::Pair(Box::new(car), Box::new(self))
     }
+
+    fn make_closure(body: Object, env: Object) -> Object {
+        Object::Closure(Box::new(body), Box::new(env))
+    }
 }
 
 enum Task<'a> {
