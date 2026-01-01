@@ -326,4 +326,10 @@ fn prim_cswap(state: State, _env: Object) -> Result<State, String> {
     Ok(new_state)
 }
 
+fn prim_print(state: State, _env: Object) -> Result<State, String> {
+    let (top, state) = state.pop()?;
+    println!("PRINT: {top}");
+    Ok(state)
+}
+
 //////////            Extra Primitives            //////////.
