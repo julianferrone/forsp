@@ -204,7 +204,7 @@ impl State {
                             _ => unreachable!("Expected data following a quote form"),
                         }
                     } else {
-                        state = state.eval(*cmd);
+                        state = state.eval(*cmd, env.clone());
                     }
                 }
                 _ => unreachable!("Closure bodies should only be Nil or Pair"),
@@ -212,14 +212,14 @@ impl State {
         }
     }
 
-    fn eval(self, expr: Object) -> State {
+    fn eval(self, expr: Object, env: Object) -> State {
         match expr {
             Object::Nil | Object::Pair(_, _) => {
                 let env = self.env.clone();
                 self.push(Object::make_closure(expr, env))
             }
             Object::Atom(_) => {
-                let value = env_find(&self.env, expr);
+                let value = env_find(&env, expr);
                 match value {
                     Ok(_) => todo!(),
                     Err(_) => self,
