@@ -7,7 +7,7 @@ pub enum Object {
     Num(usize),
     Pair(Box<Object>, Box<Object>),
     Closure(Box<Object>, Box<Object>),
-    Primitive(fn(State) -> State),
+    Primitive(fn(State, Object) -> State),
 }
 
 impl Object {
@@ -154,7 +154,7 @@ fn env_define(env: Object, key: Object, value: Object) -> Object {
     env.cons(value.cons(key))
 }
 
-fn env_define_prim(env: Object, name: &str, func: fn(State) -> State) -> Object {
+fn env_define_prim(env: Object, name: &str, func: fn(State, Object) -> State) -> Object {
     env_define(env, Object::Atom(name.into()), Object::Primitive(func))
 }
 
