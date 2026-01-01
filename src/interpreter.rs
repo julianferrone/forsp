@@ -7,7 +7,7 @@ pub enum Object {
     Num(usize),
     Pair(Box<Object>, Box<Object>),
     Closure(Box<Object>, Box<Object>),
-    Primitive(fn(Object) -> Object),
+    Primitive(fn(State) -> State),
 }
 
 impl Object {
