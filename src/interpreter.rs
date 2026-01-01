@@ -54,10 +54,7 @@ impl From<Sexpr> for Object {
             Sexpr::Nil => Object::Nil,
             Sexpr::Atom(name) => Object::Atom(name),
             Sexpr::Num(num) => Object::Num(num),
-            Sexpr::Pair(sexpr, sexpr1) => Object::Pair(
-                Box::new((*sexpr).into()),
-                Box::new((*sexpr1).into())
-            ),
+            Sexpr::Pair(car, cdr) => Object::Pair(Box::new((*car).into()), Box::new((*cdr).into())),
         }
     }
 }
