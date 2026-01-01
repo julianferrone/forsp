@@ -108,6 +108,39 @@ impl std::fmt::Display for Object {
 //                          State                         //
 ////////////////////////////////////////////////////////////
 
+//////////               Environment              //////////
+
+fn env_find(env: &Object, key: Object) -> Result<Object, String> {
+    if !key.is_atom() {
+        return Err("Expected key to be Object::Atom".into());
+    }
+    let mut kvs = env.clone();
+    loop {
+        match kvs {
+            Object::Pair(kv, rest) => match &*kv {
+                Object::Pair(k, v) => {
+                    if **k == key {
+                        return Ok(*v.to_owned());
+                    };
+                    kvs = *rest;
+                }
+                _ => return Err("Expected kv to be a pair".into()),
+            },
+            Object::Nil => return Err(format!("Failed to find key {key} in environment")),
+            _ => return Err("Expected env to be a pair".into()),
+        }
+    }
+}
+
+fn env_define(env: Object, key: Object, value: Object) -> Object {
+    env.cons(value.cons(key))
+}
+
+fn env_define_prim(env: Object, name: &str, func: fn(State) -> State) -> Object {
+    env_define(env, Object::Atom(name.into()), Object::Primitive(func))
+}
+
+
 struct State {
     interned_atoms: Object,
     stack: Object,
@@ -121,43 +154,6 @@ impl State {
             stack: Object::Nil,
             env: Object::Nil,
         }
-    }
-
-    //////////               Environment              //////////
-
-    fn env_find(&self, key: Object) -> Result<Object, String> {
-        if !key.is_atom() {
-            return Err("Expected key to be Object::Atom".into());
-        }
-        let mut kvs = self.env.clone();
-        loop {
-            match kvs {
-                Object::Pair(kv, rest) => match &*kv {
-                    Object::Pair(k, v) => {
-                        if **k == key {
-                            return Ok(*v.to_owned());
-                        };
-                        kvs = *rest;
-                    }
-                    _ => return Err("Expected kv to be a pair".into()),
-                },
-                Object::Nil => return Err(format!("Failed to find key {key} in environment")),
-                _ => return Err("Expected env to be a pair".into()),
-            }
-        }
-    }
-
-    fn env_define(self, key: Object, value: Object) -> State {
-        let env = self.env.cons(value.cons(key));
-        State {
-            interned_atoms: self.interned_atoms,
-            stack: self.stack,
-            env: env,
-        }
-    }
-
-    fn env_define_prim(self, name: &str, func: fn(Object) -> Object) -> State {
-        return self.env_define(Object::Atom(name.into()), Object::Primitive(func));
     }
 
     //////////         Value Stack Operations         //////////
