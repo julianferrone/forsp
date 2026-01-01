@@ -1,4 +1,11 @@
+use std::fmt::Display;
+
 use crate::parser::Sexpr;
+
+// TODO: Pull out Nil / Pair of SExpr into generic type SExpr<T>
+// TODO: Pull out Atom as separate enum of Num(usize) | Name(String)
+// then parser SExpr = SExpr<Atom>
+// TODO: Pull out interpreter Object => SExpr<Atom | Closure | Primitive>
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Object {
@@ -106,11 +113,13 @@ impl std::fmt::Display for Object {
                         stack.push(Task::PrintStr("("));
                     }
                     Object::Closure(body, _env) => {
-                        stack.push(Task::PrintStr("CLOSURE<"));
-                        stack.push(Task::PrintObject(body));
                         stack.push(Task::PrintStr(">"));
+                        stack.push(Task::PrintObject(body));
+                        stack.push(Task::PrintStr("CLOSURE<"));
                     }
-                    Object::Primitive(_) => todo!(),
+                    Object::Primitive(_func) => {
+                        stack.push(Task::PrintStr("PRIM"));
+                    }
                 },
                 Task::PrintStr(s) => write!(f, "{s}")?,
             }
@@ -161,17 +170,32 @@ fn env_define_prim(
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct State {
-    interned_atoms: Object,
-    stack: Object,
-    env: Object,
+    pub stack: Object,
+    pub env: Object,
+}
+
+impl Display for State {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "STATE<{} {}>", self.stack, self.env)
+    }
 }
 
 impl State {
-    fn new() -> State {
+    pub fn new() -> State {
+        // Core primitives
+        let env = Object::Nil;
+        let env = env_define_prim(env, "push", prim_push);
+        let env = env_define_prim(env, "pop", prim_pop);
+        let env = env_define_prim(env, "cons", prim_cons);
+        let env = env_define_prim(env, "car", prim_car);
+        let env = env_define_prim(env, "cdr", prim_cdr);
+        let env = env_define_prim(env, "eq", prim_eq);
+        let env = env_define_prim(env, "cswap", prim_cswap);
+        let env = env_define_prim(env, "print", prim_print);
+
         State {
-            interned_atoms: Object::Nil,
             stack: Object::Nil,
-            env: Object::Nil,
+            env: env,
         }
     }
 
@@ -179,7 +203,6 @@ impl State {
 
     fn push(self, object: Object) -> State {
         State {
-            interned_atoms: self.interned_atoms,
             stack: self.stack.cons(object),
             env: self.env,
         }
@@ -189,7 +212,6 @@ impl State {
         match self.stack {
             Object::Pair(car, cdr) => {
                 let state = State {
-                    interned_atoms: self.interned_atoms,
                     stack: *cdr,
                     env: self.env,
                 };
@@ -212,7 +234,7 @@ impl State {
         match primitive(self.clone(), env) {
             Ok(state) => state,
             Err(err) => {
-                println!("Operation failed: {err}");
+                eprintln!("  operation failed: {err}");
                 self
             }
         }
@@ -243,7 +265,7 @@ impl State {
         }
     }
 
-    fn eval(self, expr: Object, env: Object) -> State {
+    pub fn eval(self, expr: Object, env: Object) -> State {
         match expr {
             Object::Nil | Object::Pair(_, _) => {
                 let env = self.env.clone();
@@ -281,7 +303,6 @@ fn prim_pop(state: State, env: Object) -> Result<State, String> {
     let ((key, value), state) = state.pop2()?;
     let env = env_define(env, key, value);
     Ok(State {
-        interned_atoms: state.interned_atoms,
         stack: state.stack,
         env: env,
     })
@@ -333,3 +354,35 @@ fn prim_print(state: State, _env: Object) -> Result<State, String> {
 }
 
 //////////            Extra Primitives            //////////.
+
+mod tests {
+    use super::*;
+    use crate::parser::*;
+
+    #[test]
+    fn test_display_pair() {
+        let read: Object = read(scan("(x y z)")).unwrap().into();
+        assert_eq!(format!("{read}"), "(x y z)")
+    }
+
+    #[test]
+    fn test_display_force() {
+        let read: Object = read(scan("($x x)")).unwrap().into();
+        assert_eq!(format!("{read}"), "(quote x pop x)")
+    }
+
+    #[test]
+    fn test_display_dup() {
+        let read: Object = read(scan("(($x ^x ^x) $dup)")).unwrap().into();
+        assert_eq!(
+            format!("{read}"),
+            "((quote x pop quote x push quote x push) quote dup pop)"
+        )
+    }
+
+    #[test]
+    fn test_display_assoc() {
+        let read: Object = read(scan("((a b) (c d))")).unwrap().into();
+        assert_eq!(format!("{read}"), "((a b) (c d))")
+    }
+}
