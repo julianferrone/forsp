@@ -96,8 +96,8 @@ impl std::fmt::Display for Object {
                                 }
                                 Object::Nil => break,
                                 tail => {
-                                    stack.push(Task::PrintStr(" . "));
                                     stack.push(Task::PrintObject(tail));
+                                    stack.push(Task::PrintStr(" . "));
                                     break;
                                 }
                             }
