@@ -144,8 +144,8 @@ fn env_define_prim(env: Object, name: &str, func: fn(State) -> State) -> Object 
     env_define(env, Object::Atom(name.into()), Object::Primitive(func))
 }
 
-
-struct State {
+#[derive(Debug, Clone, PartialEq)]
+pub struct State {
     interned_atoms: Object,
     stack: Object,
     env: Object,
