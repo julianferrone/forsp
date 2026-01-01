@@ -7,7 +7,7 @@ pub enum Object {
     Num(usize),
     Pair(Box<Object>, Box<Object>),
     Closure(Box<Object>, Box<Object>),
-    Primitive(fn(State, Object) -> State),
+    Primitive(fn(State, Object) -> Result<State, String>),
 }
 
 impl Object {
@@ -151,7 +151,11 @@ fn env_define(env: Object, key: Object, value: Object) -> Object {
     env.cons(value.cons(key))
 }
 
-fn env_define_prim(env: Object, name: &str, func: fn(State, Object) -> State) -> Object {
+fn env_define_prim(
+    env: Object,
+    name: &str,
+    func: fn(State, Object) -> Result<State, String>,
+) -> Object {
     env_define(env, Object::Atom(name.into()), Object::Primitive(func))
 }
 
@@ -181,23 +185,38 @@ impl State {
         }
     }
 
-    fn pop(self) -> (Option<Object>, State) {
+    fn pop(self) -> Result<(Object, State), String> {
         match self.stack {
             Object::Pair(car, cdr) => {
-                let top = Some(*car);
                 let state = State {
                     interned_atoms: self.interned_atoms,
                     stack: *cdr,
                     env: self.env,
                 };
-                (top, state)
+                Ok((*car, state))
             }
-            Object::Nil => (None, self),
-            _ => panic!("Stack should only be a Pair or Nil"),
+            Object::Nil => Err("Stack is Nil".into()),
+            _ => Err("Stack should only be a Pair or Nil".into()),
         }
     }
 
+    fn pop2(self) -> Result<((Object, Object), State), String> {
+        let (a, state) = self.pop()?;
+        let (b, state) = state.pop()?;
+        Ok(((a, b), state))
+    }
+
     //////////                  Eval                  //////////
+
+    fn apply(self, primitive: fn(State, Object) -> Result<State, String>, env: Object) -> State {
+        match primitive(self.clone(), env) {
+            Ok(state) => state,
+            Err(err) => {
+                println!("Operation failed: {err}");
+                self
+            }
+        }
+    }
 
     fn compute(self, comp: Object, env: Object) -> State {
         let mut comp = comp.clone();
@@ -228,18 +247,83 @@ impl State {
         match expr {
             Object::Nil | Object::Pair(_, _) => {
                 let env = self.env.clone();
-                self.push(Object::make_closure(expr, env))
+                let closure = Object::make_closure(expr.into(), env);
+                self.push(closure)
             }
             Object::Atom(_) => {
-                let value = env_find(&env, expr);
+                let atom = expr.into();
+                let value = env_find(&env, atom);
                 match value {
-                    Ok(_) => todo!(),
+                    Ok(Object::Primitive(func)) => self.apply(func, env),
+                    Ok(Object::Closure(body, env)) => self.compute(*body, *env),
+                    Ok(object) => self.push(object),
                     Err(_) => self,
                 }
             }
-            Object::Num(_) => self.push(expr),
-            Object::Closure(body, env) => self.compute(*body, *env),
-            Object::Primitive(func) => func(self),
+            object => self.push(object),
         }
     }
 }
+
+////////////////////////////////////////////////////////////
+//                   Primitive Functions                  //
+////////////////////////////////////////////////////////////
+
+//////////             Core Primitives            //////////
+
+fn prim_push(state: State, env: Object) -> Result<State, String> {
+    let (key, state) = state.pop()?;
+    let value = env_find(&env, key)?;
+    Ok(state.push(value))
+}
+
+fn prim_pop(state: State, env: Object) -> Result<State, String> {
+    let ((key, value), state) = state.pop2()?;
+    let env = env_define(env, key, value);
+    Ok(State {
+        interned_atoms: state.interned_atoms,
+        stack: state.stack,
+        env: env,
+    })
+}
+
+fn prim_eq(state: State, _env: Object) -> Result<State, String> {
+    let ((a, b), state) = state.pop2()?;
+    let result = if a == b {
+        Object::Atom("t".into())
+    } else {
+        Object::Nil
+    };
+    Ok(state.push(result))
+}
+
+fn prim_cons(state: State, _env: Object) -> Result<State, String> {
+    let ((a, b), state) = state.pop2()?;
+    let pair = Object::cons(a, b);
+    Ok(state.push(pair))
+}
+
+fn prim_car(state: State, _env: Object) -> Result<State, String> {
+    let (x, state) = state.pop()?;
+    let car = x.car()?;
+    Ok(state.push(car))
+}
+
+fn prim_cdr(state: State, _env: Object) -> Result<State, String> {
+    let (x, state) = state.pop()?;
+    let cdr = x.cdr()?;
+    Ok(state.push(cdr))
+}
+
+fn prim_cswap(state: State, _env: Object) -> Result<State, String> {
+    let (top, state) = state.pop()?;
+    let new_state = if top == Object::Atom("t".into()) {
+        let ((a, b), state) = state.pop2()?;
+        state.push(a).push(b)
+    } else {
+        state
+    };
+    Ok(new_state)
+}
+
+//////////            Extra Primitives            //////////.
