@@ -1,4 +1,6 @@
 use std::io::prelude::*;
+
+use crate::interpreter::Object;
 mod interpreter;
 mod parser;
 
@@ -16,9 +18,13 @@ fn main() {
     loop {
         let user_input = get_user_input("forsp> ");
         let expr: interpreter::Object = parser::read(parser::scan(&user_input)).unwrap().into();
-        let env = state.env.clone();
-        state = state.compute(expr, env);
-        println!("new state: {state}");
-        println!("");
+        match expr {
+            Object::Pair(_, _) => {
+                state = state.compute(expr);
+            }
+            _ => state = state.eval(expr),
+        }
+        println!("stack: {}", state.stack);
+        println!("")
     }
 }
