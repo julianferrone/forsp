@@ -10,6 +10,12 @@ pub enum Atom {
     Num(usize),
 }
 
+impl Atom {
+    pub fn name(name: &str) -> Atom {
+        Atom::Name(name.into())
+    }
+}
+
 impl Display for Atom {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
