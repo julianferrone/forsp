@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use crate::sexpr::Sexpr;
 
 ////////////////////////////////////////////////////////////
 //                         Lexing                         //
@@ -71,31 +72,6 @@ pub fn scan(input: &str) -> VecDeque<Token> {
 ////////////////////////////////////////////////////////////
 //                         Reading                        //
 ////////////////////////////////////////////////////////////
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum Sexpr {
-    Nil,
-    Atom(String),
-    Num(usize),
-    Pair(Box<Sexpr>, Box<Sexpr>),
-}
-
-impl Sexpr {
-    fn cons(self, car: Sexpr) -> Sexpr {
-        Sexpr::Pair(Box::new(car), Box::new(self))
-    }
-
-    fn reverse_list(self) -> Sexpr {
-        let mut list = self;
-        let mut result = Sexpr::Nil;
-
-        while let Sexpr::Pair(car, cdr) = list {
-            result = result.cons(*car);
-            list = *cdr;
-        }
-        result
-    }
-}
 
 enum Task<'a> {
     PrintSexpr(&'a Sexpr),

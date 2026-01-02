@@ -1,6 +1,6 @@
 use std::fmt::{format, Display};
 
-use crate::parser::Sexpr;
+use crate::sexpr::Sexpr;
 
 // TODO: Pull out Nil / Pair of SExpr into generic type SExpr<T>
 // TODO: Pull out Atom as separate enum of Num(usize) | Name(String)
@@ -488,7 +488,7 @@ mod tests {
         let (result, _state) = state.pop().expect("Should be Ok");
         assert_eq!(
             result,
-            Object::Nil.cons(Object::Num(1)).cons(Object::Num(2))
+            Object::Nil.cons(Object::Num(2)).cons(Object::Num(1))
         )
     }
 }

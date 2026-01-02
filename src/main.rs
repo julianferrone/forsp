@@ -3,6 +3,7 @@ use std::io::prelude::*;
 use crate::interpreter::Object;
 mod interpreter;
 mod parser;
+mod sexpr;
 
 fn get_user_input(prompt: &str) -> String {
     let mut buf = String::new();
