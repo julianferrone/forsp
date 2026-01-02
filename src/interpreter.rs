@@ -134,7 +134,7 @@ impl std::fmt::Display for Object {
 
 //////////               Environment              //////////
 
-fn env_find(env: &Object, key: Object) -> Result<Object, String> {
+fn env_find(env: &Object, key: &Object) -> Result<Object, String> {
     if !key.is_atom() {
         return Err("Expected key to be Object::Atom".into());
     }
@@ -143,7 +143,7 @@ fn env_find(env: &Object, key: Object) -> Result<Object, String> {
         match kvs {
             Object::Pair(kv, rest) => match &*kv {
                 Object::Pair(k, v) => {
-                    if **k == key {
+                    if **k == *key {
                         return Ok(*v.to_owned());
                     };
                     kvs = *rest;
@@ -236,13 +236,19 @@ impl State {
         Ok(((a, b), state))
     }
 
+    //////////               Environment              //////////
+
+    fn with_env(self, env: Object) -> State {
+        State {
+            stack: self.stack,
+            env: env,
+        }
+    }
+
     //////////                  Eval                  //////////
 
-    fn apply_primitive(
-        self,
-        primitive: fn(State, Object) -> Result<State, String>,
-        env: Object,
-    ) -> State {
+    fn apply_primitive(self, primitive: fn(State, Object) -> Result<State, String>) -> State {
+        let env = self.env.clone();
         match primitive(self.clone(), env) {
             Ok(state) => state,
             Err(err) => {
@@ -251,57 +257,48 @@ impl State {
             }
         }
     }
+    pub fn compute(self, program: Object) -> State {
+        let mut state = self;
+        let mut comp = program;
 
-    pub fn compute(self, comp: Object, env: Object) -> State {
-        let mut comp = comp.clone();
-        let mut state = self.clone();
         loop {
-            println!("compute state: {}", state);
-            println!("compute comp: {}", comp);
-            println!("compute env: {}", env);
             match comp {
-                Object::Nil => break,
-                Object::Pair(cmd, cdr) => {
-                    comp = *cdr;
-                    if *cmd == Object::Atom("quote".into()) {
-                        match comp {
-                            Object::Pair(comp_car, comp_cdr) => {
-                                state = state.push(*comp_car);
-                                comp = *comp_cdr;
-                            }
-                            _ => unreachable!("Expected data following a quote form"),
+                Object::Nil => return state,
+
+                Object::Pair(cmd, rest) => match *cmd {
+                    Object::Atom(ref a) if a == "quote" => match *rest {
+                        Object::Pair(quoted, tail) => {
+                            state = state.push(*quoted);
+                            comp = *tail;
                         }
-                    } else {
-                        // let state_env = state.env.clone();
-                        state = state.eval(*cmd, env.clone());
+                        _ => panic!("quote expects one argument"),
+                    },
+
+                    _ => {
+                        state = state.eval(*cmd);
+                        comp = *rest;
                     }
-                }
-                _ => {
-                    let state_env = state.env.clone();
-                    return state.eval(comp, state_env);
-                } // _ => unreachable!("Closure bodies should only be Nil or Pair"),
+                },
+
+                _ => panic!("compute expects a list"),
             }
         }
-        state
     }
 
-    pub fn eval(self, expr: Object, env: Object) -> State {
-        println!("eval state: {}", self);
-        println!("eval expr: {}", expr);
-        println!("eval env: {}", env);
-        let result = match expr {
-            Object::Nil | Object::Pair(_, _) => {
-                let env = env.clone();
-                let closure = Object::make_closure(expr, env);
-                self.push(closure)
-            }
-            // Look up variable in environment
+    pub fn eval(self, expr: Object) -> State {
+        match expr {
             Object::Atom(_) => {
-                let value = env_find(&env, expr);
+                let value = env_find(&self.env, &expr);
+
                 match value {
-                    Ok(Object::Primitive(func)) => self.apply_primitive(func, env),
-                    Ok(Object::Closure(closure_body, closure_env)) => {
-                        self.compute(*closure_body, *closure_env)
+                    Ok(Object::Primitive(func)) => self.apply_primitive(func),
+
+                    Ok(Object::Closure(body, closure_env)) => {
+                        let saved_env = self.env.clone();
+
+                        let state = self.with_env(*closure_env).compute(*body);
+
+                        state.with_env(saved_env)
                     }
                     Ok(object) => self.push(object),
                     Err(err) => {
@@ -310,10 +307,14 @@ impl State {
                     }
                 }
             }
-            object => self.push(object),
-        };
-        println!("eval result: {}", result);
-        result
+
+            Object::Nil | Object::Pair(_, _) => {
+                let closure = Object::make_closure(expr, self.env.clone());
+                self.push(closure)
+            }
+
+            other => self.push(other),
+        }
     }
 }
 
@@ -325,7 +326,7 @@ impl State {
 
 fn prim_push(state: State, env: Object) -> Result<State, String> {
     let (key, state) = state.pop()?;
-    let value = env_find(&env, key)?;
+    let value = env_find(&env, &key)?;
     Ok(state.push(value))
 }
 
@@ -465,14 +466,15 @@ mod tests {
 
     fn compute_new(input: &str) -> State {
         let mut state = State::new();
-        let env = state.env.clone();
-        let cmd: Object = read(scan(input)).expect("Test input should be well-formed").into();
-        state.compute(cmd, env)
+        let cmd: Object = read(scan(input))
+            .expect("Test input should be well-formed")
+            .into();
+        state.compute(cmd)
     }
 
     #[test]
     fn test_compute_put() {
-        let state = compute_new("1");
+        let state = compute_new("(1)");
         let (result, _state) = state.pop().expect("Should be Ok");
         assert_eq!(result, Object::Num(1))
     }
