@@ -1,11 +1,6 @@
-use std::fmt::{format, Display};
+use std::fmt::Display;
 
 use crate::sexpr::{Atom, Sexpr};
-
-// TODO: Pull out Nil / Pair of SExpr into generic type SExpr<T>
-// TODO: Pull out Atom as separate enum of Num(usize) | Name(String)
-// then parser SExpr = SExpr<Atom>
-// TODO: Pull out interpreter Object => SExpr<Atom | Closure | Primitive>
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Object {
