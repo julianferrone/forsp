@@ -193,6 +193,14 @@ impl State {
         let env = env_define_prim(env, "cswap", prim_cswap);
         let env = env_define_prim(env, "print", prim_print);
 
+        // Extra primitives
+        let env = env_define_prim(env, "stack", prim_stack);
+        let env = env_define_prim(env, "env", prim_env);
+        let env = env_define_prim(env, "+", prim_add);
+        let env = env_define_prim(env, "-", prim_sub);
+        let env = env_define_prim(env, "mul", prim_mul);
+        let env = env_define_prim(env, "/", prim_div);
+
         State {
             stack: Object::Nil,
             env: env,
@@ -354,6 +362,49 @@ fn prim_print(state: State, _env: Object) -> Result<State, String> {
 }
 
 //////////            Extra Primitives            //////////.
+
+fn prim_stack(state: State, _env: Object) -> Result<State, String> {
+    let stack = state.stack.clone();
+    Ok(state.push(stack))
+}
+
+fn prim_env(state: State, env: Object) -> Result<State, String> {
+    Ok(state.push(env))
+}
+
+fn binary_num_op(a: Object, b: Object, func: fn(usize, usize) -> usize) -> Result<Object, String> {
+    match (&a, &b) {
+        (Object::Num(num_a), Object::Num(num_b)) => Ok(Object::Num(func(*num_a, *num_b))),
+        (_, _) => Err(format!(
+            "Expected topmost two args to be Object::Num, are {}, {}",
+            a, b
+        )),
+    }
+}
+
+fn prim_add(state: State, _env: Object) -> Result<State, String> {
+    let ((a, b), state) = state.pop2()?;
+    let result = binary_num_op(a, b, |a, b| a + b)?;
+    Ok(state.push(result))
+}
+
+fn prim_sub(state: State, _env: Object) -> Result<State, String> {
+    let ((a, b), state) = state.pop2()?;
+    let result = binary_num_op(a, b, |a, b| b - a)?;
+    Ok(state.push(result))
+}
+
+fn prim_mul(state: State, _env: Object) -> Result<State, String> {
+    let ((a, b), state) = state.pop2()?;
+    let result = binary_num_op(a, b, |a, b| a * b)?;
+    Ok(state.push(result))
+}
+
+fn prim_div(state: State, _env: Object) -> Result<State, String> {
+    let ((a, b), state) = state.pop2()?;
+    let result = binary_num_op(a, b, |a, b| b / a)?;
+    Ok(state.push(result))
+}
 
 ////////////////////////////////////////////////////////////
 //                          Tests                         //
