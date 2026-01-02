@@ -16,9 +16,9 @@ fn main() {
     loop {
         let user_input = get_user_input("forsp> ");
         let expr: interpreter::Object = parser::read(parser::scan(&user_input)).unwrap().into();
-        println!("     | parsed line: {expr:?}");
         let env = state.env.clone();
-        state = state.eval(expr, env);
-        println!("     | evaluated: {state}");
+        state = state.compute(expr, env);
+        println!("new state: {state}");
+        println!("");
     }
 }
