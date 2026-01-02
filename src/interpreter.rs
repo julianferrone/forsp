@@ -252,7 +252,7 @@ impl State {
         match primitive(self.clone(), env) {
             Ok(state) => state,
             Err(err) => {
-                eprintln!("ERROR applying primitive: {err}");
+                eprintln!("ERROR: applying primitive: {err}");
                 self
             }
         }
@@ -302,7 +302,7 @@ impl State {
                     }
                     Ok(object) => self.push(object),
                     Err(err) => {
-                        eprintln!("ERROR evaluating atom: {}", err);
+                        eprintln!("ERROR: evaluating atom: {}", err);
                         self
                     }
                 }
