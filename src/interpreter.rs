@@ -1,6 +1,6 @@
 use std::fmt::{format, Display};
 
-use crate::sexpr::Sexpr;
+use crate::sexpr::{Atom, Sexpr};
 
 // TODO: Pull out Nil / Pair of SExpr into generic type SExpr<T>
 // TODO: Pull out Atom as separate enum of Num(usize) | Name(String)
@@ -9,12 +9,10 @@ use crate::sexpr::Sexpr;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Object {
-    Nil,
-    Atom(String),
-    Num(usize),
-    Pair(Box<Object>, Box<Object>),
+    Atom(Atom),
     Closure(Box<Object>, Box<Object>),
     Primitive(fn(State, Object) -> Result<State, String>),
+    Sexpr(Box<Sexpr<Object>>),
 }
 
 impl Object {
@@ -25,29 +23,8 @@ impl Object {
         }
     }
 
-    fn is_pair(&self) -> bool {
-        match self {
-            Object::Pair(_, _) => true,
-            _ => false,
-        }
-    }
-
-    fn car(&self) -> Result<Object, String> {
-        match self {
-            Object::Pair(car, _) => Ok(*car.clone()),
-            _ => Err("Expected pair to apply car() function".into()),
-        }
-    }
-
-    fn cdr(&self) -> Result<Object, String> {
-        match self {
-            Object::Pair(_, cdr) => Ok(*cdr.clone()),
-            _ => Err("Expected pair to apply cdr() function".into()),
-        }
-    }
-
-    fn cons(self, car: Object) -> Object {
-        Object::Pair(Box::new(car), Box::new(self))
+    fn make_name(name: &str) -> Object {
+        Atom::Name(name.into()).into()
     }
 
     fn make_closure(body: Object, env: Object) -> Object {
@@ -55,7 +32,7 @@ impl Object {
     }
 
     fn default_env() -> Object {
-        let env = Object::Nil;
+        let env: Object = Object::Sexpr(Box::new(Sexpr::Nil));
         let env = env_define_prim(env, "push", prim_push);
         let env = env_define_prim(env, "pop", prim_pop);
         let env = env_define_prim(env, "cons", prim_cons);
@@ -74,15 +51,63 @@ impl Object {
         let env = env_define_prim(env, "/", prim_div);
         env
     }
+
+    fn cons(car: Object, cdr: Object) -> Object {
+        let car: Sexpr<Object> = car.into();
+        let cdr: Sexpr<Object> = cdr.into();
+        let obj: Object = Sexpr::cons(car, cdr).into();
+        obj
+    }
+
+    fn nil() -> Object {
+        Sexpr::Nil.into()
+    }
+
+    fn car(obj: Object) -> Result<Object, String> {
+        match obj {
+            Object::Sexpr(sexpr) => Ok(Sexpr::car(&*sexpr)?.into()),
+            _ => Err("car expects Object::Sexpr".into()),
+        }
+    }
+
+    fn cdr(obj: Object) -> Result<Object, String> {
+        match obj {
+            Object::Sexpr(sexpr) => Ok(Sexpr::cdr(&*sexpr)?.into()),
+            _ => Err("cdr expects Object::Sexpr".into()),
+        }
+    }
 }
 
-impl From<Sexpr> for Object {
-    fn from(value: Sexpr) -> Self {
+impl From<Atom> for Object {
+    fn from(value: Atom) -> Self {
+        Object::Atom(value)
+    }
+}
+
+impl From<Sexpr<Object>> for Object {
+    fn from(value: Sexpr<Object>) -> Self {
         match value {
-            Sexpr::Nil => Object::Nil,
-            Sexpr::Atom(name) => Object::Atom(name),
-            Sexpr::Num(num) => Object::Num(num),
-            Sexpr::Pair(car, cdr) => Object::Pair(Box::new((*car).into()), Box::new((*cdr).into())),
+            Sexpr::Single(obj) => obj,
+            _ => Object::Sexpr(Box::new(value)),
+        }
+    }
+}
+
+impl From<Object> for Sexpr<Object> {
+    fn from(value: Object) -> Self {
+        match value {
+            Object::Sexpr(sexpr) => *sexpr,
+            _ => Sexpr::Single(value),
+        }
+    }
+}
+
+impl From<Sexpr<Atom>> for Sexpr<Object> {
+    fn from(value: Sexpr<Atom>) -> Self {
+        match value {
+            Sexpr::Nil => Sexpr::Nil,
+            Sexpr::Single(atom) => Sexpr::Single(atom.into()),
+            Sexpr::Pair(car, cdr) => Sexpr::cons((*car).into(), (*cdr).into()),
         }
     }
 }
@@ -100,40 +125,8 @@ impl std::fmt::Display for Object {
         while let Some(task) = stack.pop() {
             match task {
                 Task::PrintObject(obj) => match obj {
-                    Object::Nil => write!(f, "()")?,
                     Object::Atom(name) => write!(f, "{name}")?,
-                    Object::Num(num) => write!(f, "{num}")?,
-                    Object::Pair(_car, _cdr) => {
-                        stack.push(Task::PrintStr(")"));
-
-                        let mut cur = obj;
-                        let mut elems: Vec<&Object> = Vec::new();
-
-                        loop {
-                            match cur {
-                                Object::Pair(car, cdr) => {
-                                    elems.push(car);
-                                    cur = cdr;
-                                }
-                                Object::Nil => break,
-                                tail => {
-                                    stack.push(Task::PrintObject(tail));
-                                    stack.push(Task::PrintStr(" . "));
-                                    break;
-                                }
-                            }
-                        }
-
-                        for (i, e) in elems.iter().rev().enumerate() {
-                            if i > 0 {
-                                stack.push(Task::PrintStr(" "));
-                            }
-                            stack.push(Task::PrintObject(e));
-                        }
-
-                        stack.push(Task::PrintStr("("));
-                    }
-                    Object::Closure(body, env) => {
+                    Object::Closure(body, _env) => {
                         stack.push(Task::PrintStr(">"));
                         stack.push(Task::PrintObject(body));
                         stack.push(Task::PrintStr("CLOSURE<"));
@@ -141,6 +134,7 @@ impl std::fmt::Display for Object {
                     Object::Primitive(_func) => {
                         stack.push(Task::PrintStr("PRIM"));
                     }
+                    Object::Sexpr(sexpr) => write!(f, "{sexpr}")?,
                 },
                 Task::PrintStr(s) => write!(f, "{s}")?,
             }
@@ -162,23 +156,28 @@ fn env_find(env: &Object, key: &Object) -> Result<Object, String> {
     let mut kvs = env.clone();
     loop {
         match kvs {
-            Object::Pair(kv, rest) => match &*kv {
-                Object::Pair(k, v) => {
-                    if **k == *key {
-                        return Ok(*v.to_owned());
-                    };
-                    kvs = *rest;
-                }
-                _ => return Err("Expected kv to be a pair".into()),
+            Object::Sexpr(sexpr) => match *sexpr {
+                Sexpr::Nil => return Err(format!("Failed to find key {key} in environment {env}")),
+                Sexpr::Single(_) => todo!(),
+                Sexpr::Pair(kv, rest) => match &*kv {
+                    Sexpr::Pair(ref k, ref v) => {
+                        if **k == Sexpr::Single(key.clone()) {
+                            return Ok((**v).clone().into());
+                            // return Ok(Into::<Object>::into(**v));
+                        };
+                        kvs = (*rest).into();
+                    }
+                    _ => return Err("Expected kv to be a pair".into()),
+                },
             },
-            Object::Nil => return Err(format!("Failed to find key {key} in environment {env}")),
-            _ => return Err("Expected env to be a pair".into()),
+            // Object::Nil => return Err(format!("Failed to find key {key} in environment {env}")),
+            _ => return Err("Expected env to be an Object::Sexpr".into()),
         }
     }
 }
 
 fn env_define(env: Object, key: Object, value: Object) -> Object {
-    env.cons(value.cons(key))
+    Object::cons(Object::cons(key, value), env)
 }
 
 fn env_define_prim(
@@ -186,7 +185,8 @@ fn env_define_prim(
     name: &str,
     func: fn(State, Object) -> Result<State, String>,
 ) -> Object {
-    env_define(env, Object::Atom(name.into()), Object::Primitive(func))
+    let key = Object::Atom(Atom::Name(name.into()));
+    env_define(env, key, Object::Primitive(func))
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -205,7 +205,7 @@ impl State {
     pub fn new() -> State {
         // Core primitives
         State {
-            stack: Object::Nil,
+            stack: Object::nil(),
             env: Object::default_env(),
         }
     }
@@ -214,22 +214,43 @@ impl State {
 
     fn push(self, object: Object) -> State {
         State {
-            stack: self.stack.cons(object),
+            stack: Object::cons(object, self.stack),
             env: self.env,
+        }
+    }
+
+    fn peek(self) -> Result<Object, String> {
+        match self.stack {
+            Object::Sexpr(sexpr) => match *sexpr {
+                Sexpr::Nil => Err("Stack is Nil".into()),
+                Sexpr::Single(obj) => Ok(obj),
+                Sexpr::Pair(car, cdr) => Ok((*car).into()),
+            },
+            _ => Err("Stack should be an Object::Sexpr".into()),
         }
     }
 
     fn pop(self) -> Result<(Object, State), String> {
         match self.stack {
-            Object::Pair(car, cdr) => {
-                let state = State {
-                    stack: *cdr,
-                    env: self.env,
-                };
-                Ok((*car, state))
-            }
-            Object::Nil => Err("Stack is Nil".into()),
-            _ => Err("Stack should only be a Pair or Nil".into()),
+            Object::Sexpr(sexpr) => match *sexpr {
+                Sexpr::Nil => Err("Stack is Nil".into()),
+                Sexpr::Single(obj) => {
+                    let state = State {
+                        stack: Object::nil(),
+                        env: self.env,
+                    };
+                    Ok((obj, state))
+                }
+                Sexpr::Pair(car, cdr) => {
+                    let top = (*car).into();
+                    let state = State {
+                        stack: (*cdr).into(),
+                        env: self.env,
+                    };
+                    Ok((top, state))
+                }
+            },
+            _ => Err("Stack should be an Object::Sexpr".into()),
         }
     }
 
@@ -260,29 +281,34 @@ impl State {
             }
         }
     }
-    pub fn compute(self, program: Object) -> State {
+    pub fn compute(self, program: Sexpr<Object>) -> State {
         let mut state = self;
         let mut comp = program;
 
         loop {
             match comp {
-                Object::Nil => return state,
+                Sexpr::Nil => return state,
 
-                Object::Pair(cmd, rest) => match *cmd {
-                    Object::Atom(ref a) if a == "quote" => match *rest {
-                        Object::Pair(quoted, tail) => {
-                            state = state.push(*quoted);
-                            comp = *tail;
+                Sexpr::Pair(cmd_box, rest_box) => {
+                    let rest = *rest_box;
+                    let cmd_value: Object = (*cmd_box).into();
+
+                    if let Object::Atom(Atom::Name(ref name)) = cmd_value {
+                        if name == "quote" {
+                            match rest {
+                                Sexpr::Pair(quoted, tail) => {
+                                    let quoted: Object = (*quoted).into();
+                                    state = state.push(quoted);
+                                    comp = *tail;
+                                    continue;
+                                }
+                                _ => panic!("quote expects an argument"),
+                            }
                         }
-                        _ => panic!("quote expects one argument"),
-                    },
-
-                    _ => {
-                        state = state.eval(*cmd);
-                        comp = *rest;
                     }
-                },
-
+                    state = state.eval(cmd_value);
+                    comp = rest;
+                }
                 _ => panic!("compute expects a list"),
             }
         }
@@ -290,28 +316,31 @@ impl State {
 
     pub fn eval(self, expr: Object) -> State {
         match expr {
-            Object::Atom(_) => {
-                let value = env_find(&self.env, &expr);
+            Object::Atom(ref atom) => match atom {
+                Atom::Name(_) => {
+                    let value = env_find(&self.env, &expr);
 
-                match value {
-                    Ok(Object::Primitive(func)) => self.apply_primitive(func),
+                    match value {
+                        Ok(Object::Primitive(func)) => self.apply_primitive(func),
 
-                    Ok(Object::Closure(body, closure_env)) => {
-                        let saved_env = self.env.clone();
+                        Ok(Object::Closure(body, closure_env)) => {
+                            let saved_env = self.env.clone();
 
-                        let state = self.with_env(*closure_env).compute(*body);
+                            let state = self.with_env(*closure_env).compute((*body).into());
 
-                        state.with_env(saved_env)
-                    }
-                    Ok(object) => self.push(object),
-                    Err(err) => {
-                        eprintln!("ERROR: evaluating atom: {}", err);
-                        self
+                            state.with_env(saved_env)
+                        }
+                        Ok(object) => self.push(object),
+                        Err(err) => {
+                            eprintln!("ERROR: evaluating atom: {}", err);
+                            self
+                        }
                     }
                 }
-            }
+                Atom::Num(_) => self.push(expr),
+            },
 
-            Object::Nil | Object::Pair(_, _) => {
+            Object::Sexpr(ref _sexpr) => {
                 let closure = Object::make_closure(expr, self.env.clone());
                 self.push(closure)
             }
@@ -345,9 +374,9 @@ fn prim_pop(state: State, env: Object) -> Result<State, String> {
 fn prim_eq(state: State, _env: Object) -> Result<State, String> {
     let ((a, b), state) = state.pop2()?;
     let result = if a == b {
-        Object::Atom("t".into())
+        Object::make_name("t")
     } else {
-        Object::Nil
+        Object::nil()
     };
     Ok(state.push(result))
 }
@@ -360,19 +389,19 @@ fn prim_cons(state: State, _env: Object) -> Result<State, String> {
 
 fn prim_car(state: State, _env: Object) -> Result<State, String> {
     let (x, state) = state.pop()?;
-    let car = x.car()?;
+    let car = Object::car(x)?;
     Ok(state.push(car))
 }
 
 fn prim_cdr(state: State, _env: Object) -> Result<State, String> {
     let (x, state) = state.pop()?;
-    let cdr = x.cdr()?;
+    let cdr = Object::cdr(x)?;
     Ok(state.push(cdr))
 }
 
 fn prim_cswap(state: State, _env: Object) -> Result<State, String> {
     let (top, state) = state.pop()?;
-    let new_state = if top == Object::Atom("t".into()) {
+    let new_state = if top == Object::make_name("t") {
         let ((a, b), state) = state.pop2()?;
         state.push(a).push(b)
     } else {
@@ -400,9 +429,11 @@ fn prim_env(state: State, env: Object) -> Result<State, String> {
 
 fn binary_num_op(a: Object, b: Object, func: fn(usize, usize) -> usize) -> Result<Object, String> {
     match (&a, &b) {
-        (Object::Num(num_a), Object::Num(num_b)) => Ok(Object::Num(func(*num_a, *num_b))),
+        (Object::Atom(Atom::Num(num_a)), Object::Atom(Atom::Num(num_b))) => {
+            Ok(Object::Atom(Atom::Num(func(*num_a, *num_b))))
+        }
         (_, _) => Err(format!(
-            "Expected topmost two args to be Object::Num, are {}, {}",
+            "Expected topmost two args to be Object::Atom(Atom::Num, a)re {}, {}",
             a, b
         )),
     }
@@ -442,19 +473,19 @@ mod tests {
 
     #[test]
     fn test_display_pair() {
-        let read: Object = read(scan("(x y z)")).unwrap().into();
+        let read: Sexpr<Object> = read(scan("(x y z)")).unwrap().into();
         assert_eq!(format!("{read}"), "(x y z)")
     }
 
     #[test]
     fn test_display_force() {
-        let read: Object = read(scan("($x x)")).unwrap().into();
+        let read: Sexpr<Object> = read(scan("($x x)")).unwrap().into();
         assert_eq!(format!("{read}"), "(quote x pop x)")
     }
 
     #[test]
     fn test_display_dup() {
-        let read: Object = read(scan("(($x ^x ^x) $dup)")).unwrap().into();
+        let read: Sexpr<Object> = read(scan("(($x ^x ^x) $dup)")).unwrap().into();
         assert_eq!(
             format!("{read}"),
             "((quote x pop quote x push quote x push) quote dup pop)"
@@ -463,13 +494,13 @@ mod tests {
 
     #[test]
     fn test_display_assoc() {
-        let read: Object = read(scan("((a b) (c d))")).unwrap().into();
+        let read: Sexpr<Object> = read(scan("((a b) (c d))")).unwrap().into();
         assert_eq!(format!("{read}"), "((a b) (c d))")
     }
 
     fn compute_new(input: &str) -> State {
         let mut state = State::new();
-        let cmd: Object = read(scan(input))
+        let cmd: Sexpr<Object> = read(scan(input))
             .expect("Test input should be well-formed")
             .into();
         state.compute(cmd)
@@ -479,16 +510,17 @@ mod tests {
     fn test_compute_put() {
         let state = compute_new("(1)");
         let (result, _state) = state.pop().expect("Should be Ok");
-        assert_eq!(result, Object::Num(1))
+        assert_eq!(result, Object::Atom(Atom::Num(1)))
     }
 
     #[test]
     fn test_compute_swap() {
         let state = compute_new("(($x $y ^x ^y) $swap 1 2 swap stack)");
         let (result, _state) = state.pop().expect("Should be Ok");
-        assert_eq!(
-            result,
-            Object::Nil.cons(Object::Num(2)).cons(Object::Num(1))
-        )
+        let expected = Object::cons(
+            Object::Atom(Atom::Num(1)),
+            Object::cons(Object::Atom(Atom::Num(2)), Object::nil()),
+        );
+        assert_eq!(result, expected)
     }
 }

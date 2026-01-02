@@ -1,5 +1,5 @@
+use crate::sexpr::{Atom, Sexpr};
 use std::collections::VecDeque;
-use crate::sexpr::Sexpr;
 
 ////////////////////////////////////////////////////////////
 //                         Lexing                         //
@@ -73,63 +73,9 @@ pub fn scan(input: &str) -> VecDeque<Token> {
 //                         Reading                        //
 ////////////////////////////////////////////////////////////
 
-enum Task<'a> {
-    PrintSexpr(&'a Sexpr),
-    PrintStr(&'static str),
-}
-
-impl std::fmt::Display for Sexpr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut stack: Vec<Task> = Vec::new();
-        stack.push(Task::PrintSexpr(self));
-
-        while let Some(task) = stack.pop() {
-            match task {
-                Task::PrintSexpr(obj) => match obj {
-                    Sexpr::Nil => write!(f, "()")?,
-                    Sexpr::Atom(name) => write!(f, "{name}")?,
-                    Sexpr::Num(num) => write!(f, "{num}")?,
-                    Sexpr::Pair(car, cdr) => {
-                        stack.push(Task::PrintStr(")"));
-
-                        let mut cur = obj;
-                        let mut elems: Vec<&Sexpr> = Vec::new();
-
-                        loop {
-                            match cur {
-                                Sexpr::Pair(car, cdr) => {
-                                    elems.push(car);
-                                    cur = cdr;
-                                }
-                                Sexpr::Nil => break,
-                                tail => {
-                                    stack.push(Task::PrintStr(" . "));
-                                    stack.push(Task::PrintSexpr(tail));
-                                    break;
-                                }
-                            }
-                        }
-
-                        for (i, e) in elems.iter().rev().enumerate() {
-                            if i > 0 {
-                                stack.push(Task::PrintStr(" "));
-                            }
-                            stack.push(Task::PrintSexpr(e));
-                        }
-
-                        stack.push(Task::PrintStr("("));
-                    }
-                },
-                Task::PrintStr(s) => write!(f, "{s}")?,
-            }
-        }
-        Ok(())
-    }
-}
-
 #[derive(Debug, PartialEq)]
 struct Frame {
-    rev_items: Sexpr, // reversed list
+    rev_items: Sexpr<Atom>, // reversed list
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -139,25 +85,25 @@ enum SpecialForm {
     Resolve,
 }
 
-fn desugar_special_form(obj: Sexpr, special_form: &SpecialForm) -> VecDeque<Sexpr> {
+fn desugar_special_form(obj: Sexpr<Atom>, special_form: &SpecialForm) -> VecDeque<Sexpr<Atom>> {
     match special_form {
-        SpecialForm::Quote => VecDeque::from([Sexpr::Atom("quote".to_owned()), obj]),
+        SpecialForm::Quote => VecDeque::from([Sexpr::Single(Atom::Name("quote".to_owned())), obj]),
         SpecialForm::Bind => VecDeque::from([
-            Sexpr::Atom("quote".to_owned()),
+            Sexpr::Single(Atom::Name("quote".to_owned())),
             obj,
-            Sexpr::Atom("pop".to_owned()),
+            Sexpr::Single(Atom::Name("pop".to_owned())),
         ]),
         SpecialForm::Resolve => VecDeque::from([
-            Sexpr::Atom("quote".to_owned()),
+            Sexpr::Single(Atom::Name("quote".to_owned())),
             obj,
-            Sexpr::Atom("push".to_owned()),
+            Sexpr::Single(Atom::Name("push".to_owned())),
         ]),
     }
 }
 
-pub fn read(mut tokens: VecDeque<Token>) -> Result<Sexpr, String> {
+pub fn read(mut tokens: VecDeque<Token>) -> Result<Sexpr<Atom>, String> {
     let mut stack: Vec<Frame> = Vec::new();
-    let mut result: Option<Sexpr> = None;
+    let mut result: Option<Sexpr<Atom>> = None;
     let mut special_form: Option<SpecialForm> = None;
 
     let mut is_comment = false;
@@ -179,7 +125,7 @@ pub fn read(mut tokens: VecDeque<Token>) -> Result<Sexpr, String> {
             }
             // Atoms
             Token::Int(int) => {
-                let obj = Sexpr::Num(int);
+                let obj = Sexpr::Single(Atom::Num(int));
                 match (special_form.clone(), stack.last_mut()) {
                     (None, None) => {
                         if result.is_some() {
@@ -188,14 +134,14 @@ pub fn read(mut tokens: VecDeque<Token>) -> Result<Sexpr, String> {
                         result = Some(obj);
                     }
                     (None, Some(frame)) => {
-                        frame.rev_items = frame.rev_items.clone().cons(obj);
+                        frame.rev_items = Sexpr::cons(obj, frame.rev_items.clone());
                     }
                     (Some(special), None) => {
                         special_form = None;
                         let mut expansion = Sexpr::Nil;
                         let mut parts = desugar_special_form(obj, &special);
                         while let Some(part) = parts.pop_front() {
-                            expansion = expansion.cons(part);
+                            expansion = Sexpr::cons(part, expansion);
                         }
                         if result.is_some() {
                             return Err("Multiple top-level expressions".into());
@@ -206,13 +152,13 @@ pub fn read(mut tokens: VecDeque<Token>) -> Result<Sexpr, String> {
                         special_form = None;
                         let mut parts = desugar_special_form(obj, &special);
                         while let Some(part) = parts.pop_front() {
-                            frame.rev_items = frame.rev_items.clone().cons(part);
+                            frame.rev_items = Sexpr::cons(part, frame.rev_items.clone());
                         }
                     }
                 }
             }
             Token::Literal(name) => {
-                let obj = Sexpr::Atom(name);
+                let obj = Sexpr::Single(Atom::Name(name));
                 match (special_form.clone(), stack.last_mut()) {
                     (None, None) => {
                         if result.is_some() {
@@ -221,14 +167,14 @@ pub fn read(mut tokens: VecDeque<Token>) -> Result<Sexpr, String> {
                         result = Some(obj);
                     }
                     (None, Some(frame)) => {
-                        frame.rev_items = frame.rev_items.clone().cons(obj);
+                        frame.rev_items = Sexpr::cons(obj, frame.rev_items.clone());
                     }
                     (Some(special), None) => {
                         special_form = None;
                         let mut expansion = Sexpr::Nil;
                         let mut parts = desugar_special_form(obj, &special);
                         while let Some(part) = parts.pop_front() {
-                            expansion = expansion.cons(part);
+                            expansion = Sexpr::cons(part, expansion);
                         }
                         if result.is_some() {
                             return Err("Multiple top-level expressions".into());
@@ -239,7 +185,7 @@ pub fn read(mut tokens: VecDeque<Token>) -> Result<Sexpr, String> {
                         special_form = None;
                         let mut parts = desugar_special_form(obj, &special);
                         while let Some(part) = parts.pop_front() {
-                            frame.rev_items = frame.rev_items.clone().cons(part);
+                            frame.rev_items = Sexpr::cons(part, frame.rev_items.clone());
                         }
                     }
                 }
@@ -252,7 +198,7 @@ pub fn read(mut tokens: VecDeque<Token>) -> Result<Sexpr, String> {
                 let frame = stack.pop().ok_or("Unexpected ')'")?;
                 let list = frame.rev_items.reverse_list();
                 if let Some(parent) = stack.last_mut() {
-                    parent.rev_items = parent.rev_items.clone().cons(list);
+                    parent.rev_items = Sexpr::cons(list, parent.rev_items.clone());
                 } else {
                     if result.is_some() {
                         return Err("Multiple top-level expressions".into());
@@ -390,15 +336,21 @@ mod tests {
 
     #[test]
     fn test_reverse_list() {
-        let list = Sexpr::Nil
-            .cons(Sexpr::Num(1))
-            .cons(Sexpr::Num(2))
-            .cons(Sexpr::Num(3));
+        let list = Sexpr::cons(
+            Sexpr::Single(Atom::Num(3)),
+            Sexpr::cons(
+                Sexpr::Single(Atom::Num(2)),
+                Sexpr::cons(Sexpr::Single(Atom::Num(1)), Sexpr::Nil),
+            ),
+        );
 
-        let reversed = Sexpr::Nil
-            .cons(Sexpr::Num(3))
-            .cons(Sexpr::Num(2))
-            .cons(Sexpr::Num(1));
+        let reversed = Sexpr::cons(
+            Sexpr::Single(Atom::Num(1)),
+            Sexpr::cons(
+                Sexpr::Single(Atom::Num(2)),
+                Sexpr::cons(Sexpr::Single(Atom::Num(3)), Sexpr::Nil),
+            ),
+        );
 
         assert_eq!(list.reverse_list(), reversed);
     }
@@ -407,11 +359,21 @@ mod tests {
     fn test_reading_force() {
         let scanned = scan("($x x)");
         let read = read(scanned).unwrap();
-        let expected = Sexpr::Nil
-            .cons(Sexpr::Atom("x".into()))
-            .cons(Sexpr::Atom("pop".into()))
-            .cons(Sexpr::Atom("x".into()))
-            .cons(Sexpr::Atom("quote".into()));
+        let expected = Sexpr::cons(
+            Sexpr::Single(Atom::Name("quote".into())),
+            Sexpr::cons(
+                Sexpr::Single(Atom::Name("x".into())),
+                Sexpr::cons(
+                    Sexpr::Single(Atom::Name("pop".into())),
+                    Sexpr::cons(Sexpr::Single(Atom::Name("x".into())), Sexpr::Nil),
+                ),
+            ),
+        );
+        // let expected = Sexpr::Nil
+        //     .cons(Atom::Name("x".into()))
+        //     .cons(Atom::Name("pop".into()))
+        //     .cons(Atom::Name("x".into()))
+        //     .cons(Atom::Name("quote".into()));
         assert_eq!(read, expected);
     }
 
@@ -439,9 +401,6 @@ mod tests {
     #[test]
     fn test_display_assoc() {
         let read = read(scan("((a b) (c d))")).unwrap();
-        assert_eq!(
-            format!("{read}"),
-            "((a b) (c d))"
-        )
+        assert_eq!(format!("{read}"), "((a b) (c d))")
     }
 }

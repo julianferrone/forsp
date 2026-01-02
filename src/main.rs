@@ -18,12 +18,13 @@ fn main() {
     let mut state = interpreter::State::new();
     loop {
         let user_input = get_user_input("forsp> ");
-        let expr: interpreter::Object = parser::read(parser::scan(&user_input)).unwrap().into();
+        let expr: sexpr::Sexpr<interpreter::Object> =
+            parser::read(parser::scan(&user_input)).unwrap().into();
         match expr {
-            Object::Pair(_, _) => {
+            sexpr::Sexpr::Pair(_, _) => {
                 state = state.compute(expr);
             }
-            _ => state = state.eval(expr),
+            _ => state = state.eval(expr.into()),
         }
         println!("stack: {}", state.stack);
         println!("")
