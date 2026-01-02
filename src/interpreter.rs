@@ -198,7 +198,7 @@ impl State {
         let env = env_define_prim(env, "env", prim_env);
         let env = env_define_prim(env, "+", prim_add);
         let env = env_define_prim(env, "-", prim_sub);
-        let env = env_define_prim(env, "mul", prim_mul);
+        let env = env_define_prim(env, "*", prim_mul);
         let env = env_define_prim(env, "/", prim_div);
 
         State {
