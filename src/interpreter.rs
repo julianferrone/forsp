@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt::{format, Display};
 
 use crate::parser::Sexpr;
 
@@ -112,7 +112,7 @@ impl std::fmt::Display for Object {
 
                         stack.push(Task::PrintStr("("));
                     }
-                    Object::Closure(body, _env) => {
+                    Object::Closure(body, env) => {
                         stack.push(Task::PrintStr(">"));
                         stack.push(Task::PrintObject(body));
                         stack.push(Task::PrintStr("CLOSURE<"));
@@ -150,7 +150,7 @@ fn env_find(env: &Object, key: Object) -> Result<Object, String> {
                 }
                 _ => return Err("Expected kv to be a pair".into()),
             },
-            Object::Nil => return Err(format!("Failed to find key {key} in environment")),
+            Object::Nil => return Err(format!("Failed to find key {key} in environment {env}")),
             _ => return Err("Expected env to be a pair".into()),
         }
     }
@@ -238,22 +238,29 @@ impl State {
 
     //////////                  Eval                  //////////
 
-    fn apply(self, primitive: fn(State, Object) -> Result<State, String>, env: Object) -> State {
+    fn apply_primitive(
+        self,
+        primitive: fn(State, Object) -> Result<State, String>,
+        env: Object,
+    ) -> State {
         match primitive(self.clone(), env) {
             Ok(state) => state,
             Err(err) => {
-                eprintln!("  operation failed: {err}");
+                eprintln!("ERROR applying primitive: {err}");
                 self
             }
         }
     }
 
-    fn compute(self, comp: Object, env: Object) -> State {
+    pub fn compute(self, comp: Object, env: Object) -> State {
         let mut comp = comp.clone();
         let mut state = self.clone();
         loop {
+            println!("compute state: {}", state);
+            println!("compute comp: {}", comp);
+            println!("compute env: {}", env);
             match comp {
-                Object::Nil => return state,
+                Object::Nil => break,
                 Object::Pair(cmd, cdr) => {
                     comp = *cdr;
                     if *cmd == Object::Atom("quote".into()) {
@@ -265,33 +272,48 @@ impl State {
                             _ => unreachable!("Expected data following a quote form"),
                         }
                     } else {
+                        // let state_env = state.env.clone();
                         state = state.eval(*cmd, env.clone());
                     }
                 }
-                _ => unreachable!("Closure bodies should only be Nil or Pair"),
+                _ => {
+                    let state_env = state.env.clone();
+                    return state.eval(comp, state_env);
+                } // _ => unreachable!("Closure bodies should only be Nil or Pair"),
             }
         }
+        state
     }
 
     pub fn eval(self, expr: Object, env: Object) -> State {
-        match expr {
+        println!("eval state: {}", self);
+        println!("eval expr: {}", expr);
+        println!("eval env: {}", env);
+        let result = match expr {
             Object::Nil | Object::Pair(_, _) => {
-                let env = self.env.clone();
-                let closure = Object::make_closure(expr.into(), env);
+                let env = env.clone();
+                let closure = Object::make_closure(expr, env);
                 self.push(closure)
             }
+            // Look up variable in environment
             Object::Atom(_) => {
-                let atom = expr.into();
-                let value = env_find(&env, atom);
+                let value = env_find(&env, expr);
                 match value {
-                    Ok(Object::Primitive(func)) => self.apply(func, env),
-                    Ok(Object::Closure(body, env)) => self.compute(*body, *env),
+                    Ok(Object::Primitive(func)) => self.apply_primitive(func, env),
+                    Ok(Object::Closure(closure_body, closure_env)) => {
+                        self.compute(*closure_body, *closure_env)
+                    }
                     Ok(object) => self.push(object),
-                    Err(_) => self,
+                    Err(err) => {
+                        eprintln!("ERROR evaluating atom: {}", err);
+                        self
+                    }
                 }
             }
             object => self.push(object),
-        }
+        };
+        println!("eval result: {}", result);
+        result
     }
 }
 
