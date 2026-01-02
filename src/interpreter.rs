@@ -283,7 +283,7 @@ impl State {
         loop {
             match comp {
                 Sexpr::Nil => return state,
-
+                Sexpr::Single(obj) => return state.eval(obj),
                 Sexpr::Pair(cmd_box, rest_box) => {
                     let rest = *rest_box;
                     let cmd_value: Value = (*cmd_box).into();
@@ -304,7 +304,6 @@ impl State {
                     state = state.eval(cmd_value);
                     comp = rest;
                 }
-                _ => panic!("compute expects a list"),
             }
         }
     }
