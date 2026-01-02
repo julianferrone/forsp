@@ -53,6 +53,27 @@ impl Object {
     fn make_closure(body: Object, env: Object) -> Object {
         Object::Closure(Box::new(body), Box::new(env))
     }
+
+    fn default_env() -> Object {
+        let env = Object::Nil;
+        let env = env_define_prim(env, "push", prim_push);
+        let env = env_define_prim(env, "pop", prim_pop);
+        let env = env_define_prim(env, "cons", prim_cons);
+        let env = env_define_prim(env, "car", prim_car);
+        let env = env_define_prim(env, "cdr", prim_cdr);
+        let env = env_define_prim(env, "eq", prim_eq);
+        let env = env_define_prim(env, "cswap", prim_cswap);
+        let env = env_define_prim(env, "print", prim_print);
+
+        // Extra primitives
+        let env = env_define_prim(env, "stack", prim_stack);
+        let env = env_define_prim(env, "env", prim_env);
+        let env = env_define_prim(env, "+", prim_add);
+        let env = env_define_prim(env, "-", prim_sub);
+        let env = env_define_prim(env, "*", prim_mul);
+        let env = env_define_prim(env, "/", prim_div);
+        env
+    }
 }
 
 impl From<Sexpr> for Object {
@@ -183,27 +204,9 @@ impl Display for State {
 impl State {
     pub fn new() -> State {
         // Core primitives
-        let env = Object::Nil;
-        let env = env_define_prim(env, "push", prim_push);
-        let env = env_define_prim(env, "pop", prim_pop);
-        let env = env_define_prim(env, "cons", prim_cons);
-        let env = env_define_prim(env, "car", prim_car);
-        let env = env_define_prim(env, "cdr", prim_cdr);
-        let env = env_define_prim(env, "eq", prim_eq);
-        let env = env_define_prim(env, "cswap", prim_cswap);
-        let env = env_define_prim(env, "print", prim_print);
-
-        // Extra primitives
-        let env = env_define_prim(env, "stack", prim_stack);
-        let env = env_define_prim(env, "env", prim_env);
-        let env = env_define_prim(env, "+", prim_add);
-        let env = env_define_prim(env, "-", prim_sub);
-        let env = env_define_prim(env, "*", prim_mul);
-        let env = env_define_prim(env, "/", prim_div);
-
         State {
             stack: Object::Nil,
-            env: env,
+            env: Object::default_env(),
         }
     }
 
