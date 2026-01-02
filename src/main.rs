@@ -1,6 +1,6 @@
 use std::io::prelude::*;
 
-use crate::interpreter::Object;
+use crate::interpreter::Value;
 mod interpreter;
 mod parser;
 mod sexpr;
@@ -18,7 +18,7 @@ fn main() {
     let mut state = interpreter::State::new();
     loop {
         let user_input = get_user_input("forsp> ");
-        let expr: sexpr::Sexpr<interpreter::Object> =
+        let expr: sexpr::Sexpr<interpreter::Value> =
             parser::read(parser::scan(&user_input)).unwrap().into();
         match expr {
             sexpr::Sexpr::Pair(_, _) => {
