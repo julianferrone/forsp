@@ -355,6 +355,10 @@ fn prim_print(state: State, _env: Object) -> Result<State, String> {
 
 //////////            Extra Primitives            //////////.
 
+////////////////////////////////////////////////////////////
+//                          Tests                         //
+////////////////////////////////////////////////////////////
+
 mod tests {
     use super::*;
     use crate::parser::*;
@@ -384,5 +388,29 @@ mod tests {
     fn test_display_assoc() {
         let read: Object = read(scan("((a b) (c d))")).unwrap().into();
         assert_eq!(format!("{read}"), "((a b) (c d))")
+    }
+
+    fn compute_new(input: &str) -> State {
+        let mut state = State::new();
+        let env = state.env.clone();
+        let cmd: Object = read(scan(input)).expect("Test input should be well-formed").into();
+        state.compute(cmd, env)
+    }
+
+    #[test]
+    fn test_compute_put() {
+        let state = compute_new("1");
+        let (result, _state) = state.pop().expect("Should be Ok");
+        assert_eq!(result, Object::Num(1))
+    }
+
+    #[test]
+    fn test_compute_swap() {
+        let state = compute_new("(($x $y ^x ^y) $swap 1 2 swap stack)");
+        let (result, _state) = state.pop().expect("Should be Ok");
+        assert_eq!(
+            result,
+            Object::Nil.cons(Object::Num(1)).cons(Object::Num(2))
+        )
     }
 }
