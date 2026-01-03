@@ -105,8 +105,8 @@ pub fn read(mut tokens: VecDeque<Token>) -> Result<Sexpr<Atom>, String> {
     let mut stack: Vec<Frame> = Vec::new();
     let mut result: Option<Sexpr<Atom>> = None;
     let mut special_form: Option<SpecialForm> = None;
-
     let mut is_comment = false;
+    
     while let Some(token) = tokens.pop_front() {
         // println!("Stack: {stack:?}, Token: {token:?}");
         match token {
