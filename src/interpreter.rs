@@ -45,6 +45,7 @@ impl Value {
         let env = env_define_prim(env, "-", prim_sub);
         let env = env_define_prim(env, "*", prim_mul);
         let env = env_define_prim(env, "/", prim_div);
+        let env = env_define_prim(env, "help", prim_help);
         env
     }
 
@@ -424,8 +425,62 @@ fn prim_cswap(state: State, _env: Value) -> Result<State, String> {
 
 fn prim_print(state: State, _env: Value) -> Result<State, String> {
     let (top, state) = state.pop()?;
-    println!("PRINT: {top}");
-    Ok(state)
+    let messages = Sexpr::cons(Sexpr::Single(format!("{}", top)), state.messages);
+
+    Ok(State {
+        messages: messages,
+        ..state
+    })
+}
+
+fn prim_help(state: State, _env: Value) -> Result<State, String> {
+    let help_messages: Sexpr<String> = sexpr!([
+        "Welcome to Forsp: A Forth+Lisp Hybrid Lambda Calculus Language!".into(),
+        "".into(),
+        "Please find below the list of primitives defined in Forsp:".into(),
+        "".into(),
+        "SPECIAL FORMS: ".into(),
+        "".into(),
+        "Syntax | Parsed as      | Semantics                                                      ".into(),
+        "-------+----------------+----------------------------------------------------------------".into(),
+        "'foo   | quote foo      | The quoted literal (foo) is pushed to the stack".into(),
+        "$foo   | quote foo pop  | A value will be popped from the stack and bound to \"foo\" in  ".into(),
+        "       |                | the environment".into(),
+        "^foo   | quote foo push | The name \"foo\" will be resolved in current environment and   ".into(),
+        "       |                | pushed to the stack".into(),
+        "".into(),
+        "CORE: Primitives needed to self-implement".into(),
+        "".into(),
+        "primitive [args]          |  description                                      | example usage".into(),
+        "--------------------------|---------------------------------------------------|--------------".into(),
+        "push  [$name]             |  resolve \"name\" in environment and push           | 'foo push".into(),
+        "pop   [$name $val]        |  bind \"val\" to \"name\" in environment              | 'foo pop".into(),
+        "eq    [$a $b]             |  if \"a\" and \"b\" are equal, then \"t\", else \"()\"    | 'a 'b eq".into(),
+        "cons  [$fst $snd]         |  construct a pair from \"fst\" and \"snd\"            | '(2 3) 1 cons".into(),
+        "car   [$pair]             |  extract the first element of a pair              | '(1 2 3) car".into(),
+        "cdr   [$pair]             |  extract the second element of a pair             | '(1 2 3) cdr".into(),
+        "cswap [$cond $a $b]       |  if cond is \"t\" then perform a swap               | 1 2 't cswap".into(),
+        "tag   [$obj]              |  query the type-tag of any object                 | ^tag tag".into(),
+        "read  []                  |  read an s-expression from input data             | read".into(),
+        "print [$obj]              |  print an object as an s-expression               | '(foo bar) print".into(),
+        "".into(),
+        "EXTRA: Additional primitives that are not strictly needed, but useful to have".into(),
+        "".into(),
+        "primitive [args]          |  description                                      | example usage".into(),
+        "--------------------------|---------------------------------------------------|--------------".into(),
+        "stack                     |  push the \"stack\" onto the stack: cons'ing self   | stack".into(),
+        "env                       |  push the \"env\" onto the stack                    | env".into(),
+        "+    [$b $a]              |  push the result of \"a+b\" (addition)              | 3 2 +".into(),
+        "-    [$b $a]              |  push the result of \"a-b\" (subtraction)           | 3 2 -".into(),
+        "*    [$b $a]              |  push the result of \"a*b\" (multiplication)        | 3 2 *".into(),
+        "/    [$b $a]              |  push the result of \"a/b\" (division)              | 3 2 /".into(),
+        "help                      |  print this table of built-in primitives          | print".into(),
+        "".into()
+    ]);
+    Ok(State {
+        messages: Sexpr::extend(state.messages, help_messages),
+        ..state
+    })
 }
 
 //////////            Extra Primitives            //////////.
