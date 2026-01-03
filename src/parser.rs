@@ -76,6 +76,16 @@ pub fn scan(input: &str) -> VecDeque<Token> {
 #[derive(Debug, PartialEq)]
 struct Frame {
     rev_items: Sexpr<Atom>, // reversed list
+    pending_special: Option<SpecialForm>,
+}
+
+impl Frame {
+    fn new() -> Frame {
+        Frame {
+            rev_items: Sexpr::Nil,
+            pending_special: None,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -85,28 +95,58 @@ enum SpecialForm {
     Resolve,
 }
 
-fn desugar_special_form(obj: Sexpr<Atom>, special_form: &SpecialForm) -> VecDeque<Sexpr<Atom>> {
-    match special_form {
-        SpecialForm::Quote => VecDeque::from([Sexpr::Single(Atom::Name("quote".to_owned())), obj]),
-        SpecialForm::Bind => VecDeque::from([
-            Sexpr::Single(Atom::Name("quote".to_owned())),
+fn quote(obj: Sexpr<Atom>) -> Sexpr<Atom> {
+    Sexpr::cons(
+        Sexpr::Single(Atom::name("quote")),
+        Sexpr::cons(obj, Sexpr::Nil),
+    )
+}
+
+fn bind(obj: Sexpr<Atom>) -> Sexpr<Atom> {
+    Sexpr::cons(
+        Sexpr::Single(Atom::name("quote")),
+        Sexpr::cons(
             obj,
-            Sexpr::Single(Atom::Name("pop".to_owned())),
-        ]),
-        SpecialForm::Resolve => VecDeque::from([
-            Sexpr::Single(Atom::Name("quote".to_owned())),
+            Sexpr::cons(Sexpr::Single(Atom::name("pop")), Sexpr::Nil),
+        ),
+    )
+}
+
+fn resolve(obj: Sexpr<Atom>) -> Sexpr<Atom> {
+    Sexpr::cons(
+        Sexpr::Single(Atom::name("quote")),
+        Sexpr::cons(
             obj,
-            Sexpr::Single(Atom::Name("push".to_owned())),
-        ]),
+            Sexpr::cons(Sexpr::Single(Atom::name("push")), Sexpr::Nil),
+        ),
+    )
+}
+
+fn emit(stack: &mut Vec<Frame>, obj: Sexpr<Atom>) -> Result<(), String> {
+    let frame = stack
+        .last_mut()
+        .ok_or::<String>("No frames in stack".into())?;
+
+    match frame.pending_special.take() {
+        Some(special_form) => {
+            let extension = match special_form {
+                SpecialForm::Quote => quote(obj),
+                SpecialForm::Bind => bind(obj),
+                SpecialForm::Resolve => resolve(obj),
+            }
+            .reverse_list();
+            frame.rev_items = Sexpr::extend(extension, frame.rev_items.clone())
+        }
+        None => frame.rev_items = Sexpr::cons(obj, frame.rev_items.clone()),
     }
+
+    Ok(())
 }
 
 pub fn read(mut tokens: VecDeque<Token>) -> Result<Sexpr<Atom>, String> {
-    let mut stack: Vec<Frame> = Vec::new();
-    let mut result: Option<Sexpr<Atom>> = None;
-    let mut special_form: Option<SpecialForm> = None;
+    let mut stack: Vec<Frame> = vec![Frame::new()];
     let mut is_comment = false;
-    
+
     while let Some(token) = tokens.pop_front() {
         // println!("Stack: {stack:?}, Token: {token:?}");
         match token {
@@ -117,108 +157,66 @@ pub fn read(mut tokens: VecDeque<Token>) -> Result<Sexpr<Atom>, String> {
             _ if is_comment => (),
             // Special forms
             Token::Quote => {
-                special_form = Some(SpecialForm::Quote);
+                stack
+                    .last_mut()
+                    .ok_or("No stacks in frame".to_owned())?
+                    .pending_special = Some(SpecialForm::Quote);
             }
-            Token::Dollar => special_form = Some(SpecialForm::Bind),
+            Token::Dollar => {
+                stack
+                    .last_mut()
+                    .ok_or("No stacks in frame".to_owned())?
+                    .pending_special = Some(SpecialForm::Bind);
+            }
             Token::Caret => {
-                special_form = Some(SpecialForm::Resolve);
+                stack
+                    .last_mut()
+                    .ok_or("No stacks in frame".to_owned())?
+                    .pending_special = Some(SpecialForm::Resolve);
             }
             // Atoms
             Token::Int(int) => {
                 let obj = Sexpr::Single(Atom::Num(int));
-                match (special_form.clone(), stack.last_mut()) {
-                    (None, None) => {
-                        if result.is_some() {
-                            return Err("Multiple top-level expressions".into());
-                        }
-                        result = Some(obj);
-                    }
-                    (None, Some(frame)) => {
-                        frame.rev_items = Sexpr::cons(obj, frame.rev_items.clone());
-                    }
-                    (Some(special), None) => {
-                        special_form = None;
-                        let mut expansion = Sexpr::Nil;
-                        let mut parts = desugar_special_form(obj, &special);
-                        while let Some(part) = parts.pop_front() {
-                            expansion = Sexpr::cons(part, expansion);
-                        }
-                        if result.is_some() {
-                            return Err("Multiple top-level expressions".into());
-                        }
-                        result = Some(expansion);
-                    }
-                    (Some(special), Some(frame)) => {
-                        special_form = None;
-                        let mut parts = desugar_special_form(obj, &special);
-                        while let Some(part) = parts.pop_front() {
-                            frame.rev_items = Sexpr::cons(part, frame.rev_items.clone());
-                        }
-                    }
-                }
+                emit(&mut stack, obj)?;
             }
             Token::Literal(name) => {
                 let obj = Sexpr::Single(Atom::Name(name));
-                match (special_form.clone(), stack.last_mut()) {
-                    (None, None) => {
-                        if result.is_some() {
-                            return Err("Multiple top-level expressions".into());
-                        }
-                        result = Some(obj);
-                    }
-                    (None, Some(frame)) => {
-                        frame.rev_items = Sexpr::cons(obj, frame.rev_items.clone());
-                    }
-                    (Some(special), None) => {
-                        special_form = None;
-                        let mut expansion = Sexpr::Nil;
-                        let mut parts = desugar_special_form(obj, &special);
-                        while let Some(part) = parts.pop_front() {
-                            expansion = Sexpr::cons(part, expansion);
-                        }
-                        if result.is_some() {
-                            return Err("Multiple top-level expressions".into());
-                        }
-                        result = Some(expansion);
-                    }
-                    (Some(special), Some(frame)) => {
-                        special_form = None;
-                        let mut parts = desugar_special_form(obj, &special);
-                        while let Some(part) = parts.pop_front() {
-                            frame.rev_items = Sexpr::cons(part, frame.rev_items.clone());
-                        }
-                    }
-                }
+                emit(&mut stack, obj)?;
             }
             // List
-            Token::BracketOpen => stack.push(Frame {
-                rev_items: Sexpr::Nil,
-            }),
+            Token::BracketOpen => stack.push(Frame::new()),
             Token::BracketClose => {
                 let frame = stack.pop().ok_or("Unexpected ')'")?;
                 let list = frame.rev_items.reverse_list();
-                if let Some(parent) = stack.last_mut() {
-                    parent.rev_items = Sexpr::cons(list, parent.rev_items.clone());
-                } else {
-                    if result.is_some() {
-                        return Err("Multiple top-level expressions".into());
-                    }
-                    result = Some(list);
-                }
+                // let parent = stack.last_mut().ok_or("No stacks left in frame")?;
+                // parent.rev_items = Sexpr::cons(list, parent.rev_items.clone());
+                emit(&mut stack, list)?
             }
         }
     }
-    if !stack.is_empty() {
-        return Err("Unclosed '('".into());
+    // println!("Stack: {stack:?}");
+    if !stack.len() == 1 {
+        return Err("Unclosed '('".to_owned());
     }
-    result.ok_or("Empty input".into())
+    let result = stack
+        .pop()
+        .ok_or("Empty input".to_owned())?
+        .rev_items
+        .reverse_list();
+    Ok(result)
 }
+
+////////////////////////////////////////////////////////////
+//                          Tests                         //
+////////////////////////////////////////////////////////////
 
 #[cfg(test)]
 mod tests {
     use std::vec;
 
     use super::*;
+
+    //////////              Test Scanner              //////////
 
     #[test]
     fn test_scan_drop() {
@@ -355,9 +353,12 @@ mod tests {
         assert_eq!(list.reverse_list(), reversed);
     }
 
+    //////////               Test Reader              //////////
+
     #[test]
     fn test_read_list() {
-        let read = read(scan("(1 2 3)")).unwrap();
+        let program = read(scan("(1 2 3)")).unwrap();
+        let line = Sexpr::car(&program).expect("Program should have at least one line");
         let expected = Sexpr::cons(
             Sexpr::Single(Atom::Num(1)),
             Sexpr::cons(
@@ -365,13 +366,13 @@ mod tests {
                 Sexpr::cons(Sexpr::Single(Atom::Num(3)), Sexpr::Nil),
             ),
         );
-        assert_eq!(read, expected)
+        assert_eq!(line, expected)
     }
 
     #[test]
     fn test_reading_force() {
-        let scanned = scan("($x x)");
-        let read = read(scanned).unwrap();
+        let program = read(scan("($x x)")).unwrap();
+        let line = Sexpr::car(&program).expect("Program should have at least one line");
         let expected = Sexpr::cons(
             Sexpr::Single(Atom::Name("quote".into())),
             Sexpr::cons(
@@ -382,74 +383,67 @@ mod tests {
                 ),
             ),
         );
-        // let expected = Sexpr::Nil
-        //     .cons(Atom::Name("x".into()))
-        //     .cons(Atom::Name("pop".into()))
-        //     .cons(Atom::Name("x".into()))
-        //     .cons(Atom::Name("quote".into()));
-        assert_eq!(read, expected);
+        assert_eq!(line, expected);
+    }
+
+    fn check_display(input: &str, expected: &str) {
+        let read: Sexpr<Atom> = read(scan(input))
+            .expect("Test input should be well-formed")
+            .into();
+        let formatted = format!("{}", &read);
+        assert_eq!(formatted, expected)
     }
 
     #[test]
     fn test_display_pair() {
-        let read = read(scan("(x y z)")).unwrap();
-        assert_eq!(format!("{read}"), "(x y z)")
+        check_display("x y z", "(x y z)");
     }
 
     #[test]
     fn test_display_force() {
-        let read = read(scan("($x x)")).unwrap();
-        assert_eq!(format!("{read}"), "(quote x pop x)")
-    }
-
-    #[test]
-    fn test_quote_foo() {
-        let read = read(scan("'foo")).unwrap();
-        assert_eq!(format!("{read}"), "(quote foo)")
-    }
-
-    #[test]
-    fn test_bind_bar() {
-        let read = read(scan("$bar")).unwrap();
-        assert_eq!(format!("{read}"), "(quote bar pop)")
-    }
-
-    #[test]
-    fn test_resolve_baz() {
-        let read = read(scan("^baz")).unwrap();
-        assert_eq!(format!("{read}"), "(quote baz push)")
-    }
-
-    #[test]
-    fn test_quote_list() {
-        let read = read(scan("'(1 2 3)")).unwrap();
-        assert_eq!(format!("{read}"), "(quote (1 2 3))")
-    }
-
-    #[test]
-    fn test_resolve_list() {
-        let read = read(scan("$(1 2 3)")).unwrap();
-        assert_eq!(format!("{read}"), "(quote (1 2 3) pop)")
-    }
-
-    #[test]
-    fn test_bind_list() {
-        let read = read(scan("^(1 2 3)")).unwrap();
-        assert_eq!(format!("{read}"), "(quote (1 2 3) push)")
+        check_display("$x x", "(quote x pop x)");
     }
 
     #[test]
     fn test_display_dup() {
-        let read = read(scan("(($x ^x ^x) $dup)")).unwrap();
-        assert_eq!(
-            format!("{read}"),
-            "((quote x pop quote x push quote x push) quote dup pop)"
-        )
+        check_display(
+            "($x ^x ^x) $dup",
+            "((quote x pop quote x push quote x push) quote dup pop)",
+        );
     }
 
     #[test]
-    fn test_display_assoc() {
-        let read = read(scan("((a b) (c d))")).unwrap();
-        assert_eq!(format!("{read}"), "((a b) (c d))")
+    fn test_display_tree() {
+        check_display("(a b) (c d)", "((a b) (c d))");
+    }
+
+    #[test]
+    fn test_quote_foo() {
+        check_display("'foo", "(quote foo)");
+    }
+
+    #[test]
+    fn test_bind_bar() {
+        check_display("$bar", "(quote bar pop)");
+    }
+
+    #[test]
+    fn test_resolve_baz() {
+        check_display("^baz", "(quote baz push)");
+    }
+
+    #[test]
+    fn test_quote_list() {
+        check_display("'(1 2 3)", "(quote (1 2 3))");
+    }
+
+    #[test]
+    fn test_resolve_list() {
+        check_display("$(1 2 3)", "(quote (1 2 3) pop)");
+    }
+
+    #[test]
+    fn test_bind_list() {
+        check_display("^(1 2 3)", "(quote (1 2 3) push)");
     }
 }
