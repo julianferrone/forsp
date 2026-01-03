@@ -287,23 +287,7 @@ impl State {
 
     fn apply_primitive(self, primitive: Primitive) -> State {
         let env = self.env.clone();
-        let func = match primitive {
-            Primitive::Push => prim_push,
-            Primitive::Pop => prim_pop,
-            Primitive::Eq => prim_eq,
-            Primitive::Cons => prim_cons,
-            Primitive::Car => prim_car,
-            Primitive::Cdr => prim_cdr,
-            Primitive::Cswap => prim_cswap,
-            Primitive::Print => prim_print,
-            Primitive::Help => prim_help,
-            Primitive::Stack => prim_stack,
-            Primitive::Env => prim_env,
-            Primitive::Add => prim_add,
-            Primitive::Sub => prim_sub,
-            Primitive::Mul => prim_mul,
-            Primitive::Div => prim_div,
-        };
+        let func = get_primitive_function(primitive);
         match func(self.clone(), env) {
             Ok(state) => state,
             Err(err) => {
@@ -402,6 +386,26 @@ pub enum Primitive {
     Sub,
     Mul,
     Div,
+}
+
+fn get_primitive_function(primitive: Primitive) -> fn(State, Value) -> Result<State, String> {
+    match primitive {
+        Primitive::Push => prim_push,
+        Primitive::Pop => prim_pop,
+        Primitive::Eq => prim_eq,
+        Primitive::Cons => prim_cons,
+        Primitive::Car => prim_car,
+        Primitive::Cdr => prim_cdr,
+        Primitive::Cswap => prim_cswap,
+        Primitive::Print => prim_print,
+        Primitive::Help => prim_help,
+        Primitive::Stack => prim_stack,
+        Primitive::Env => prim_env,
+        Primitive::Add => prim_add,
+        Primitive::Sub => prim_sub,
+        Primitive::Mul => prim_mul,
+        Primitive::Div => prim_div,
+    }
 }
 
 //////////             Core Primitives            //////////
