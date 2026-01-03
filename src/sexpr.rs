@@ -42,12 +42,36 @@ impl<T> Sexpr<T> {
     }
 
     pub fn reverse_list(self) -> Sexpr<T> {
+        if let Sexpr::Nil = self {
+            return self;
+        }
+        if let Sexpr::Single(_) = self {
+            return self
+        }
         let mut list = self;
         let mut result = Sexpr::Nil;
-
         while let Sexpr::Pair(car, cdr) = list {
             result = Sexpr::cons(*car, result);
             list = *cdr;
+        }
+        result
+    }
+
+    pub fn extend(first: Sexpr<T>, second: Sexpr<T>) -> Sexpr<T> {
+        let mut first = first.reverse_list();
+        let mut result = second;
+        loop {
+            match first {
+                Sexpr::Nil => break,
+                Sexpr::Single(_) => {
+                    result = Sexpr::cons(first, result);
+                    break;
+                }
+                Sexpr::Pair(car, cdr) => {
+                    result = Sexpr::Pair(car, Box::new(result));
+                    first = *cdr;
+                }
+            }
         }
         result
     }
@@ -119,5 +143,22 @@ impl<T: Display> Display for Sexpr<T> {
             }
         }
         Ok(())
+    }
+}
+
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extend_single_works() {
+        let first: Sexpr<usize> = Sexpr::Single(1);
+        let second: Sexpr<usize> =
+            Sexpr::cons(Sexpr::Single(2), Sexpr::cons(Sexpr::Single(3), Sexpr::Nil));
+
+        let expected: Sexpr<usize> = Sexpr::cons(
+            Sexpr::Single(1),
+            Sexpr::cons(Sexpr::Single(2), Sexpr::cons(Sexpr::Single(3), Sexpr::Nil)),
+        );
+        assert_eq!(Sexpr::extend(first, second), expected);
     }
 }
