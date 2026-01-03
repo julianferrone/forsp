@@ -4,7 +4,6 @@
     <style>
         :root {
             --color-bg: #0b0b0b;
-            /* --color-text: #e5e5e5; */
             --color-text: #ffb000;
         }
 
@@ -152,7 +151,7 @@
             rendered.append(document.createTextNode(before));
 
             const cursor = document.createElement("span");
-            
+
             if (focused && at) {
                 cursor.className = "cursor-block";
                 cursor.textContent = at;
