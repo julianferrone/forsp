@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+use crate::sexpr;
 use crate::sexpr::{Atom, Sexpr};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -188,6 +189,8 @@ fn env_define_prim(
 pub struct State {
     pub stack: Value,
     pub env: Value,
+    pub messages: Sexpr<String>,
+    pub err_messages: Sexpr<String>,
 }
 
 impl Display for State {
@@ -202,6 +205,38 @@ impl State {
         State {
             stack: Value::nil(),
             env: Value::default_env(),
+            messages: Sexpr::Nil,
+            err_messages: Sexpr::Nil,
+        }
+    }
+
+    ////// Messages
+
+    pub fn flush_messages(self) -> State {
+        self.messages.into_iter().for_each(|msg| println!("{msg}"));
+        self.err_messages
+            .into_iter()
+            .for_each(|msg| eprintln!("ERROR: {msg}"));
+        State {
+            messages: Sexpr::Nil,
+            err_messages: Sexpr::Nil,
+            ..self
+        }
+    }
+
+    pub fn print(self, msg: impl Into<String>) -> State {
+        let msg = Sexpr::Single(msg.into());
+        State {
+            messages: Sexpr::cons(msg, self.messages),
+            ..self
+        }
+    }
+
+    pub fn eprint(self, msg: impl Into<String>) -> State {
+        let msg = Sexpr::Single(msg.into());
+        State {
+            err_messages: Sexpr::cons(msg, self.err_messages),
+            ..self
         }
     }
 
@@ -210,18 +245,7 @@ impl State {
     fn push(self, object: Value) -> State {
         State {
             stack: Value::cons(object, self.stack),
-            env: self.env,
-        }
-    }
-
-    fn peek(self) -> Result<Value, String> {
-        match self.stack {
-            Value::Sexpr(sexpr) => match *sexpr {
-                Sexpr::Nil => Err("Stack is Nil".into()),
-                Sexpr::Single(obj) => Ok(obj),
-                Sexpr::Pair(car, _cdr) => Ok((*car).into()),
-            },
-            _ => Err("Stack should be an Object::Sexpr".into()),
+            ..self
         }
     }
 
@@ -232,7 +256,7 @@ impl State {
                 Sexpr::Single(obj) => {
                     let state = State {
                         stack: Value::nil(),
-                        env: self.env,
+                        ..self
                     };
                     Ok((obj, state))
                 }
@@ -240,7 +264,7 @@ impl State {
                     let top = (*car).into();
                     let state = State {
                         stack: (*cdr).into(),
-                        env: self.env,
+                        ..self
                     };
                     Ok((top, state))
                 }
@@ -258,10 +282,7 @@ impl State {
     //////////               Environment              //////////
 
     fn with_env(self, env: Value) -> State {
-        State {
-            stack: self.stack,
-            env: env,
-        }
+        State { env: env, ..self }
     }
 
     //////////                  Eval                  //////////
@@ -284,9 +305,9 @@ impl State {
             match comp {
                 Sexpr::Nil => return state,
                 Sexpr::Single(obj) => return state.eval(obj),
-                Sexpr::Pair(cmd_box, rest_box) => {
-                    let rest = *rest_box;
-                    let cmd_value: Value = (*cmd_box).into();
+                Sexpr::Pair(ref cmd_box, ref rest_box) => {
+                    let rest = *rest_box.clone();
+                    let cmd_value: Value = (*cmd_box.clone()).into();
 
                     if let Value::Atom(Atom::Name(ref name)) = cmd_value {
                         if name == "quote" {
@@ -297,7 +318,10 @@ impl State {
                                     comp = *tail;
                                     continue;
                                 }
-                                _ => panic!("quote expects an argument"),
+                                _ => {
+                                    state = state.eprint("quote expects an argument");
+                                    continue;
+                                }
                             }
                         }
                     }
@@ -325,10 +349,7 @@ impl State {
                             state.with_env(saved_env)
                         }
                         Ok(object) => self.push(object),
-                        Err(err) => {
-                            eprintln!("ERROR: evaluating atom: {}", err);
-                            self
-                        }
+                        Err(err) => self.eprint(err),
                     }
                 }
                 Atom::Num(_) => self.push(expr),
@@ -359,10 +380,7 @@ fn prim_push(state: State, env: Value) -> Result<State, String> {
 fn prim_pop(state: State, env: Value) -> Result<State, String> {
     let ((key, value), state) = state.pop2()?;
     let env = env_define(env, key, value);
-    Ok(State {
-        stack: state.stack,
-        env: env,
-    })
+    Ok(State { env: env, ..state })
 }
 
 fn prim_eq(state: State, _env: Value) -> Result<State, String> {

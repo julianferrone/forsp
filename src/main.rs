@@ -26,7 +26,6 @@ fn main() {
             }
             _ => state = state.eval(expr.into()),
         }
-        println!("stack: {}", state.stack);
-        println!("")
+        state = state.flush_messages();
     }
 }
