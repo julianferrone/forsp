@@ -1,5 +1,5 @@
-use std::fmt::Display;
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 
 use crate::sexpr;
 use crate::sexpr::{Atom, Sexpr};
@@ -8,7 +8,7 @@ use crate::sexpr::{Atom, Sexpr};
 pub enum Value {
     Atom(Atom),
     Closure(Box<Value>, Box<Value>),
-    Primitive(fn(State, Value) -> Result<State, String>),
+    Primitive(Primitive),
     Sexpr(Box<Sexpr<Value>>),
 }
 
@@ -30,23 +30,23 @@ impl Value {
 
     fn default_env() -> Value {
         let env: Value = Value::Sexpr(Box::new(Sexpr::Nil));
-        let env = env_define_prim(env, "push", prim_push);
-        let env = env_define_prim(env, "pop", prim_pop);
-        let env = env_define_prim(env, "cons", prim_cons);
-        let env = env_define_prim(env, "car", prim_car);
-        let env = env_define_prim(env, "cdr", prim_cdr);
-        let env = env_define_prim(env, "eq", prim_eq);
-        let env = env_define_prim(env, "cswap", prim_cswap);
-        let env = env_define_prim(env, "print", prim_print);
+        let env = env_define_prim(env, "push", Primitive::Push);
+        let env = env_define_prim(env, "pop", Primitive::Pop);
+        let env = env_define_prim(env, "cons", Primitive::Cons);
+        let env = env_define_prim(env, "car", Primitive::Car);
+        let env = env_define_prim(env, "cdr", Primitive::Cdr);
+        let env = env_define_prim(env, "eq", Primitive::Eq);
+        let env = env_define_prim(env, "cswap", Primitive::Cswap);
+        let env = env_define_prim(env, "print", Primitive::Print);
 
         // Extra primitives
-        let env = env_define_prim(env, "stack", prim_stack);
-        let env = env_define_prim(env, "env", prim_env);
-        let env = env_define_prim(env, "+", prim_add);
-        let env = env_define_prim(env, "-", prim_sub);
-        let env = env_define_prim(env, "*", prim_mul);
-        let env = env_define_prim(env, "/", prim_div);
-        let env = env_define_prim(env, "help", prim_help);
+        let env = env_define_prim(env, "stack", Primitive::Stack);
+        let env = env_define_prim(env, "env", Primitive::Env);
+        let env = env_define_prim(env, "+", Primitive::Add);
+        let env = env_define_prim(env, "-", Primitive::Sub);
+        let env = env_define_prim(env, "*", Primitive::Mul);
+        let env = env_define_prim(env, "/", Primitive::Div);
+        let env = env_define_prim(env, "help", Primitive::Help);
         env
     }
 
@@ -178,13 +178,9 @@ fn env_define(env: Value, key: Value, value: Value) -> Value {
     Value::cons(Value::cons(key, value), env)
 }
 
-fn env_define_prim(
-    env: Value,
-    name: &str,
-    func: fn(State, Value) -> Result<State, String>,
-) -> Value {
+fn env_define_prim(env: Value, name: &str, prim: Primitive) -> Value {
     let key = Value::Atom(Atom::Name(name.into()));
-    env_define(env, key, Value::Primitive(func))
+    env_define(env, key, Value::Primitive(prim))
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -289,9 +285,26 @@ impl State {
 
     //////////                  Eval                  //////////
 
-    fn apply_primitive(self, primitive: fn(State, Value) -> Result<State, String>) -> State {
+    fn apply_primitive(self, primitive: Primitive) -> State {
         let env = self.env.clone();
-        match primitive(self.clone(), env) {
+        let func = match primitive {
+            Primitive::Push => prim_push,
+            Primitive::Pop => prim_pop,
+            Primitive::Eq => prim_eq,
+            Primitive::Cons => prim_cons,
+            Primitive::Car => prim_car,
+            Primitive::Cdr => prim_cdr,
+            Primitive::Cswap => prim_cswap,
+            Primitive::Print => prim_print,
+            Primitive::Help => prim_help,
+            Primitive::Stack => prim_stack,
+            Primitive::Env => prim_env,
+            Primitive::Add => prim_add,
+            Primitive::Sub => prim_sub,
+            Primitive::Mul => prim_mul,
+            Primitive::Div => prim_div,
+        };
+        match func(self.clone(), env) {
             Ok(state) => state,
             Err(err) => {
                 eprintln!("ERROR: applying primitive: {err}");
@@ -299,6 +312,7 @@ impl State {
             }
         }
     }
+
     pub fn compute(self, program: Sexpr<Value>) -> State {
         let mut state = self;
         let mut comp = program;
@@ -370,6 +384,25 @@ impl State {
 ////////////////////////////////////////////////////////////
 //                   Primitive Functions                  //
 ////////////////////////////////////////////////////////////
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub enum Primitive {
+    Push,
+    Pop,
+    Eq,
+    Cons,
+    Car,
+    Cdr,
+    Cswap,
+    Print,
+    Help,
+    Stack,
+    Env,
+    Add,
+    Sub,
+    Mul,
+    Div,
+}
 
 //////////             Core Primitives            //////////
 
