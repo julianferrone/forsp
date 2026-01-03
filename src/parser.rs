@@ -155,6 +155,7 @@ pub fn read(mut tokens: VecDeque<Token>) -> Result<Sexpr<Atom>, String> {
             Token::WhiteSpace => (),
             Token::NewLine => is_comment = false,
             _ if is_comment => (),
+
             // Special forms
             Token::Quote => {
                 stack
@@ -174,6 +175,7 @@ pub fn read(mut tokens: VecDeque<Token>) -> Result<Sexpr<Atom>, String> {
                     .ok_or("No stacks in frame".to_owned())?
                     .pending_special = Some(SpecialForm::Resolve);
             }
+
             // Atoms
             Token::Int(int) => {
                 let obj = Sexpr::Single(Atom::Num(int));
@@ -183,13 +185,12 @@ pub fn read(mut tokens: VecDeque<Token>) -> Result<Sexpr<Atom>, String> {
                 let obj = Sexpr::Single(Atom::Name(name));
                 emit(&mut stack, obj)?;
             }
+            
             // List
             Token::BracketOpen => stack.push(Frame::new()),
             Token::BracketClose => {
                 let frame = stack.pop().ok_or("Unexpected ')'")?;
                 let list = frame.rev_items.reverse_list();
-                // let parent = stack.last_mut().ok_or("No stacks left in frame")?;
-                // parent.rev_items = Sexpr::cons(list, parent.rev_items.clone());
                 emit(&mut stack, list)?
             }
         }
