@@ -461,12 +461,13 @@ fn prim_div(state: State, _env: Value) -> Result<State, String> {
 //                          Tests                         //
 ////////////////////////////////////////////////////////////
 
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::parser::*;
 
     fn interpret_from_new(input: &str) -> State {
-        let mut state = State::new();
+        let state = State::new();
         let cmd: Sexpr<Value> = read(scan(input))
             .expect("Test input should be well-formed")
             .into();

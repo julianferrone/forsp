@@ -146,8 +146,9 @@ impl<T: Display> Display for Sexpr<T> {
     }
 }
 
+#[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::sexpr::Sexpr;
 
     #[test]
     fn extend_first_single_works() {
