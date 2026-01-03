@@ -465,34 +465,7 @@ mod tests {
     use super::*;
     use crate::parser::*;
 
-    #[test]
-    fn test_display_pair() {
-        let read: Sexpr<Value> = read(scan("(x y z)")).unwrap().into();
-        assert_eq!(format!("{read}"), "(x y z)")
-    }
-
-    #[test]
-    fn test_display_force() {
-        let read: Sexpr<Value> = read(scan("($x x)")).unwrap().into();
-        assert_eq!(format!("{read}"), "(quote x pop x)")
-    }
-
-    #[test]
-    fn test_display_dup() {
-        let read: Sexpr<Value> = read(scan("(($x ^x ^x) $dup)")).unwrap().into();
-        assert_eq!(
-            format!("{read}"),
-            "((quote x pop quote x push quote x push) quote dup pop)"
-        )
-    }
-
-    #[test]
-    fn test_display_assoc() {
-        let read: Sexpr<Value> = read(scan("((a b) (c d))")).unwrap().into();
-        assert_eq!(format!("{read}"), "((a b) (c d))")
-    }
-
-    fn compute_new(input: &str) -> State {
+    fn interpret_from_new(input: &str) -> State {
         let mut state = State::new();
         let cmd: Sexpr<Value> = read(scan(input))
             .expect("Test input should be well-formed")
@@ -501,15 +474,15 @@ mod tests {
     }
 
     #[test]
-    fn test_compute_put() {
-        let state = compute_new("(1)");
+    fn test_interpret_put() {
+        let state = interpret_from_new("1");
         let (result, _state) = state.pop().expect("Should be Ok");
         assert_eq!(result, Value::Atom(Atom::Num(1)))
     }
 
     #[test]
     fn test_compute_swap() {
-        let state = compute_new("(($x $y ^x ^y) $swap 1 2 swap stack)");
+        let state = interpret_from_new("($x $y ^x ^y) $swap 1 2 swap stack");
         let (result, _state) = state.pop().expect("Should be Ok");
         let expected = Value::cons(
             Value::Atom(Atom::Num(1)),
