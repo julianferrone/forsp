@@ -150,7 +150,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn extend_single_works() {
+    fn extend_first_single_works() {
         let first: Sexpr<usize> = Sexpr::Single(1);
         let second: Sexpr<usize> =
             Sexpr::cons(Sexpr::Single(2), Sexpr::cons(Sexpr::Single(3), Sexpr::Nil));
@@ -160,5 +160,12 @@ mod tests {
             Sexpr::cons(Sexpr::Single(2), Sexpr::cons(Sexpr::Single(3), Sexpr::Nil)),
         );
         assert_eq!(Sexpr::extend(first, second), expected);
+    }
+
+    #[test]
+    fn extend_second_nil_works() {
+        let first: Sexpr<usize> = Sexpr::cons(Sexpr::Single(1), Sexpr::Nil);
+        let second: Sexpr<usize> = Sexpr::Nil;
+        assert_eq!(Sexpr::extend(first.clone(), second), first);
     }
 }
