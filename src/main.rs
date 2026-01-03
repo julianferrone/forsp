@@ -1,6 +1,5 @@
 use std::io::prelude::*;
 
-use crate::interpreter::Value;
 mod interpreter;
 mod parser;
 mod sexpr;
