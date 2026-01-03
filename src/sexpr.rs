@@ -122,8 +122,8 @@ impl<T: Display> Display for Sexpr<T> {
                                 }
                                 Sexpr::Nil => break,
                                 tail => {
-                                    stack.push(Task::PrintStr(" . "));
                                     stack.push(Task::PrintSexpr(&tail));
+                                    stack.push(Task::PrintStr(" . "));
                                     break;
                                 }
                             }
