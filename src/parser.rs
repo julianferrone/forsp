@@ -356,6 +356,19 @@ mod tests {
     }
 
     #[test]
+    fn test_read_list() {
+        let read = read(scan("(1 2 3)")).unwrap();
+        let expected = Sexpr::cons(
+            Sexpr::Single(Atom::Num(1)),
+            Sexpr::cons(
+                Sexpr::Single(Atom::Num(2)),
+                Sexpr::cons(Sexpr::Single(Atom::Num(3)), Sexpr::Nil),
+            ),
+        );
+        assert_eq!(read, expected)
+    }
+
+    #[test]
     fn test_reading_force() {
         let scanned = scan("($x x)");
         let read = read(scanned).unwrap();
@@ -387,6 +400,42 @@ mod tests {
     fn test_display_force() {
         let read = read(scan("($x x)")).unwrap();
         assert_eq!(format!("{read}"), "(quote x pop x)")
+    }
+
+    #[test]
+    fn test_quote_foo() {
+        let read = read(scan("'foo")).unwrap();
+        assert_eq!(format!("{read}"), "(quote foo)")
+    }
+
+    #[test]
+    fn test_bind_bar() {
+        let read = read(scan("$bar")).unwrap();
+        assert_eq!(format!("{read}"), "(quote bar pop)")
+    }
+
+    #[test]
+    fn test_resolve_baz() {
+        let read = read(scan("^baz")).unwrap();
+        assert_eq!(format!("{read}"), "(quote baz push)")
+    }
+
+    #[test]
+    fn test_quote_list() {
+        let read = read(scan("'(1 2 3)")).unwrap();
+        assert_eq!(format!("{read}"), "(quote (1 2 3))")
+    }
+
+    #[test]
+    fn test_resolve_list() {
+        let read = read(scan("$(1 2 3)")).unwrap();
+        assert_eq!(format!("{read}"), "(quote (1 2 3) pop)")
+    }
+
+    #[test]
+    fn test_bind_list() {
+        let read = read(scan("^(1 2 3)")).unwrap();
+        assert_eq!(format!("{read}"), "(quote (1 2 3) push)")
     }
 
     #[test]
