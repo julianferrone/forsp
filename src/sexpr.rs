@@ -1,10 +1,12 @@
+use serde::{Deserialize, Serialize};
+
 ////////////////////////////////////////////////////////////
 //                          Atoms                         //
 ////////////////////////////////////////////////////////////
 
 use std::fmt::Display;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Atom {
     Name(String),
     Num(usize),
@@ -29,7 +31,7 @@ impl Display for Atom {
 //                      S-Expressions                     //
 ////////////////////////////////////////////////////////////
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Deserialize, Serialize)]
 pub enum Sexpr<T> {
     Nil,
     Single(T),

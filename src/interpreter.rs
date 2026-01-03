@@ -1,9 +1,10 @@
 use std::fmt::Display;
+use serde::{Deserialize, Serialize};
 
 use crate::sexpr;
 use crate::sexpr::{Atom, Sexpr};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum Value {
     Atom(Atom),
     Closure(Box<Value>, Box<Value>),
@@ -186,7 +187,7 @@ fn env_define_prim(
     env_define(env, key, Value::Primitive(func))
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct State {
     pub stack: Value,
     pub env: Value,
