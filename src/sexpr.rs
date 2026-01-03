@@ -36,6 +36,51 @@ pub enum Sexpr<T> {
     Pair(Box<Sexpr<T>>, Box<Sexpr<T>>),
 }
 
+#[macro_export]
+macro_rules! sexpr {
+    ([]) => {
+        $crate::sexpr::Sexpr::Nil
+    };
+
+    ([$head:expr $(, $tail:expr)* $(,)?]) => {
+        $crate::sexpr::Sexpr::Pair(
+            Box::new($crate::sexpr::Sexpr::Single($head)),
+            Box::new(sexpr!([$($tail),*])),
+        )
+    };
+}
+
+pub struct SexprIter<'a, T> {
+    next: Option<&'a Sexpr<T>>,
+}
+
+impl<'a, T> IntoIterator for &'a Sexpr<T> {
+    type Item = &'a Sexpr<T>;
+    type IntoIter = SexprIter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        SexprIter { next: Some(self) }
+    }
+}
+
+impl<'a, T> Iterator for SexprIter<'a, T> {
+    type Item = &'a Sexpr<T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.next.take()? {
+            Sexpr::Pair(car, cdr) => {
+                self.next = Some(cdr);
+                Some(car)
+            }
+            Sexpr::Nil => None,
+            Sexpr::Single(_) => {
+                // Non-list: stop iteration (or panic if you prefer)
+                None
+            }
+        }
+    }
+}
+
 impl<T> Sexpr<T> {
     pub fn cons(car: Sexpr<T>, cdr: Sexpr<T>) -> Sexpr<T> {
         Sexpr::Pair(Box::new(car), Box::new(cdr))
@@ -46,7 +91,7 @@ impl<T> Sexpr<T> {
             return self;
         }
         if let Sexpr::Single(_) = self {
-            return self
+            return self;
         }
         let mut list = self;
         let mut result = Sexpr::Nil;
