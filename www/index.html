@@ -1,0 +1,208 @@
+<html>
+
+<head>
+    <style>
+        :root {
+            --color-bg: #0b0b0b;
+            /* --color-text: #e5e5e5; */
+            --color-text: #ffb000;
+        }
+
+        #terminal {
+            /* Classic terminal dimensions */
+            width: 80ch;
+            height: calc(24 * 1.5em);
+            /* must match line-height */
+
+            background: var(--color-bg);
+            color: var(--color-text);
+
+            font-family: monospace;
+            font-size: 16px;
+            line-height: 1.5;
+
+            padding: 1em;
+            box-sizing: content-box;
+
+            border-radius: 8px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+
+            display: flex;
+            flex-direction: column;
+        }
+
+
+        #output {
+            flex: 1;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+
+        .input-line {
+            display: flex;
+            align-items: center;
+        }
+
+        .prompt {
+            margin-right: 6px;
+        }
+
+        #terminal-input {
+            background: transparent;
+            border: none;
+            outline: none;
+            color: inherit;
+            font: inherit;
+            width: 100%;
+            caret-color: transparent;
+            /* hide real caret */
+            position: relative;
+            z-index: 1;
+        }
+
+        /* mirror span to measure text width */
+        #mirror {
+            visibility: hidden;
+            position: absolute;
+            top: 0;
+            left: 0;
+            white-space: pre;
+            font: inherit;
+        }
+
+        .input-wrapper {
+            position: relative;
+            flex: 1;
+            font: inherit;
+        }
+
+        /* Invisible input for keyboard handling */
+        #terminal-input {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            caret-color: transparent;
+        }
+
+        /* Rendered text */
+        #rendered-input {
+            white-space: pre;
+        }
+
+        /* Inverted cursor (block over character) */
+        .cursor-block {
+            background: var(--color-text);
+            color: var(--color-bg);
+        }
+
+        /* End-of-line cursor */
+        .cursor-eol {
+            background: var(--color-text);
+            color: var(--color-bg);
+        }
+
+        /* Unfocused cursor: hollow block */
+        .cursor-unfocused {
+            border: 1px solid var(--color-text);
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="terminal">
+        <div id="output"></div>
+
+        <div class="input-line">
+            <span class="prompt">forsp&gt;</span>
+
+            <span class="input-wrapper">
+
+                <span id="rendered-input"></span>
+                <input id="terminal-input" type="text" autocomplete="off" autofocus />
+
+            </span>
+        </div>
+    </div>
+
+    <script>
+        const input = document.getElementById("terminal-input");
+        const rendered = document.getElementById("rendered-input");
+        const cursor = document.getElementById("cursor");
+        const output = document.getElementById("output");
+
+        function appendLine(text) {
+            const line = document.createElement("div");
+            line.textContent = text;
+            output.appendChild(line);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function render() {
+            const value = input.value;
+            const pos = input.selectionStart ?? 0;
+            const focused = document.activeElement === input;
+
+            const before = value.slice(0, pos);
+            const at = value[pos];
+            const after = value.slice(pos + 1);
+
+            rendered.innerHTML = "";
+
+            rendered.append(document.createTextNode(before));
+
+            const cursor = document.createElement("span");
+            
+            if (focused && at) {
+                cursor.className = "cursor-block";
+                cursor.textContent = at;
+            } else if (focused && !at) {
+                cursor.className = "cursor-eol";
+                cursor.textContent = " ";
+            } else if (!focused && at) {
+                cursor.className = "cursor-unfocused";
+                cursor.textContent = at;
+            } else if (!focused && !at) {
+                cursor.className = "cursor-unfocused";
+                cursor.textContent = " ";
+            }
+
+            rendered.append(cursor);
+            rendered.append(document.createTextNode(at ? after : ""));
+        }
+
+        [
+            "input",
+            "keyup",
+            "click",
+            "focus",
+            "blur"
+        ].forEach(evt => input.addEventListener(evt, render));
+
+        // Typing updates cursor
+        input.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                const value = input.value;
+                if (value.trim()) {
+                    appendLine(`prompt> ${value}`);
+                }
+                input.value = "";
+            }
+            render();
+        });
+
+        // Focus terminal on click
+        document.getElementById("terminal").addEventListener("mousedown", () => {
+            console.log("Clicked terminal");
+            input.focus();
+        });
+
+        // initial render
+        render();
+    </script>
+
+
+
+</body>
+
+</html>
