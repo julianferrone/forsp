@@ -52,6 +52,25 @@ macro_rules! sexpr {
     };
 }
 
+impl<T> Into<Vec<T>> for Sexpr<T> {
+    fn into(self) -> Vec<T> {
+        let mut stack: Vec<Sexpr<T>> = vec![];
+        let mut result: Vec<T> = vec![];
+        while let Some(expr) = stack.pop() {
+            match expr {
+                Sexpr::Nil => continue,
+                Sexpr::Single(x) => result.push(x),
+                Sexpr::Pair(car, cdr) => {
+                    // Stack is LIFO, so push cdr first
+                    stack.push(*cdr);
+                    stack.push(*car);
+                }
+            }
+        }
+        result
+    }
+}
+
 pub struct SexprIter<'a, T> {
     next: Option<&'a Sexpr<T>>,
 }
