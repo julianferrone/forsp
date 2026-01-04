@@ -7,97 +7,21 @@
 <body>
     <div id="terminal">
         <div id="output"></div>
-
         <div class="input-line">
             <span class="prompt">forsp&gt;</span>
-
             <span class="input-wrapper">
-
-                <span id="rendered-input"></span>
+                <span class="input-viewport">
+                    <span id="rendered-input"></span>
+                </span>
                 <input id="terminal-input" type="text" autocomplete="off" autofocus />
-
             </span>
         </div>
     </div>
 
-    <script>
-        const input = document.getElementById("terminal-input");
-        const rendered = document.getElementById("rendered-input");
-        const cursor = document.getElementById("cursor");
-        const output = document.getElementById("output");
-
-        function appendLine(text) {
-            const line = document.createElement("div");
-            line.textContent = text;
-            output.appendChild(line);
-            output.scrollTop = output.scrollHeight;
-        }
-
-        function render() {
-            const value = input.value;
-            const pos = input.selectionStart ?? 0;
-            const focused = document.activeElement === input;
-
-            const before = value.slice(0, pos);
-            const at = value[pos];
-            const after = value.slice(pos + 1);
-
-            rendered.innerHTML = "";
-
-            rendered.append(document.createTextNode(before));
-
-            const cursor = document.createElement("span");
-
-            if (focused && at) {
-                cursor.className = "cursor-block";
-                cursor.textContent = at;
-            } else if (focused && !at) {
-                cursor.className = "cursor-eol";
-                cursor.textContent = " ";
-            } else if (!focused && at) {
-                cursor.className = "cursor-unfocused";
-                cursor.textContent = at;
-            } else if (!focused && !at) {
-                cursor.className = "cursor-unfocused";
-                cursor.textContent = " ";
-            }
-
-            rendered.append(cursor);
-            rendered.append(document.createTextNode(at ? after : ""));
-        }
-
-        [
-            "input",
-            "keyup",
-            "click",
-            "focus",
-            "blur"
-        ].forEach(evt => input.addEventListener(evt, render));
-
-        // Typing updates cursor
-        input.addEventListener("keydown", (e) => {
-            if (e.key === "Enter") {
-                const value = input.value;
-                if (value.trim()) {
-                    appendLine(`prompt> ${value}`);
-                }
-                input.value = "";
-            }
-            render();
-        });
-
-        // Focus terminal on click
-        document.getElementById("terminal").addEventListener("mousedown", () => {
-            console.log("Clicked terminal");
-            input.focus();
-        });
-
-        // initial render
-        render();
-    </script>
-
-
-
+    <!-- Here, we have to load the generated JS file directly in the document -->
+    <script src="./pkg/forsp.js"></script>
+    <!-- Note that there is NO `type="module"` in the script tag -->
+    <script src="./index.js"></script>
 </body>
 
 </html>
