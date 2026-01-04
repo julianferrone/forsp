@@ -185,7 +185,7 @@ pub fn read(mut tokens: VecDeque<Token>) -> Result<Sexpr<Atom>, String> {
                 let obj = Sexpr::Single(Atom::Name(name));
                 emit(&mut stack, obj)?;
             }
-            
+
             // List
             Token::BracketOpen => stack.push(Frame::new()),
             Token::BracketClose => {
