@@ -228,7 +228,11 @@ impl State {
             err_messages: Sexpr::Nil,
             ..self
         };
-        (state, self.messages, self.err_messages)
+        (
+            state,
+            self.messages.reverse_list(),
+            self.err_messages.reverse_list(),
+        )
     }
 
     pub fn print(self, msg: impl Into<String>) -> State {
