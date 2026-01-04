@@ -480,55 +480,15 @@ fn prim_print(state: State, _env: Value) -> Result<State, String> {
     })
 }
 
+const HELP: &str = include_str!("help.txt");
+
 fn prim_help(state: State, _env: Value) -> Result<State, String> {
-    let help_messages: Sexpr<String> = sexpr!([
-        "Welcome to Forsp: A Forth+Lisp Hybrid Lambda Calculus Language!".into(),
-        "".into(),
-        "Please find below the list of primitives defined in Forsp:".into(),
-        "".into(),
-        "SPECIAL FORMS:".into(),
-        "".into(),
-        "Syntax | Parsed as      | Semantics".into(),
-        "-------+----------------+-------------------------------------------------------".into(),
-        "'foo   | quote foo      | The quoted literal (foo) is pushed to the stack".into(),
-        "$foo   | quote foo pop  | A value will be popped from the stack and bound to ".into(),
-        "       |                | \"foo\" in the environment".into(),
-        "^foo   | quote foo push | The name \"foo\" will be resolved in current ".into(),
-        "       |                | environment and pushed to the stack".into(),
-        "".into(),
-        "".into(),
-        "CORE: Primitives needed to self-implement".into(),
-        "".into(),
-        "primitive [args]    | description                           | example usage".into(),
-        "--------------------+---------------------------------------+-------------------".into(),
-        "push  [$name]       | resolve \"name\" in environment and     | 'foo push".into(),
-        "                    | push to the top of the stack          |".into(),
-        "pop   [$name $val]  | bind \"val\" to \"name\" in environment   | 'foo pop".into(),
-        "eq    [$a $b]       | if \"a\" and \"b\" are equal, then \"t\",   | 'a 'b eq".into(),
-        "                    | else \"()\"                             |".into(),
-        "cons  [$fst $snd]   | construct a pair from \"fst\" and \"snd\" | '(2 3) 1 cons".into(),
-        "car   [$pair]       | extract the first element of \"pair\"   | '(1 2 3) car".into(),
-        "cdr   [$pair]       | extract the second element of \"pair\"  | '(1 2 3) cdr".into(),
-        "cswap [$cond $a $b] | if cond is \"t\" then swap \"a\" and \"b\"  | 1 2 't cswap".into(),
-        "tag   [$obj]        | query the type-tag of any object      | ^tag tag".into(),
-        "read  []            | read an s-expression from input data  | read".into(),
-        "print [$obj]        | print an object as an s-expression    | '(foo bar) print".into(),
-        "".into(),
-        "".into(),
-        "EXTRA: Additional primitives that are not strictly needed, but useful to have".into(),
-        "".into(),
-        "primitive [args]    |  description                          | example usage".into(),
-        "--------------------+---------------------------------------+-------------------".into(),
-        "stack               |  push the \"stack\" onto the stack: f   | stack".into(),
-        "                    |  cons'ing self                        |".into(),
-        "env                 |  push the \"env\" onto the stack        | env".into(),
-        "+    [$b $a]        |  push the result of 'a+b' (add)       | 3 2 +".into(),
-        "-    [$b $a]        |  push the result of 'a-b' (subtract)  | 3 2 -".into(),
-        "*    [$b $a]        |  push the result of 'a*b' (multiply)  | 3 2 *".into(),
-        "/    [$b $a]        |  push the result of 'a/b' (divide)    | 3 2 /".into(),
-        "help                |  print this help page                 | print".into(),
-        "".into()
-    ]);
+    let help_messages = HELP
+        .lines()
+        .map(|line| line.to_owned())
+        .rev()
+        .collect::<Vec<String>>()
+        .into();
     Ok(State {
         messages: Sexpr::extend(state.messages, help_messages),
         ..state
