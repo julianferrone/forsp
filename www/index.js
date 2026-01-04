@@ -4,8 +4,21 @@ const rendered = document.getElementById("rendered-input");
 const cursor = document.getElementById("cursor");
 const output = document.getElementById("output");
 
+function appendText(text) {
+    if (text.length <= 80) {
+        appendLine(text)
+    } else {
+        const length = 80; // 80 characters in the terminal
+        var split = [];
+        for (var i = 0; i < text.length; i += length) {
+            split.push(text.substr(i, length));
+        }
+        split.reverse().forEach(line => appendLine(line))
+    }
+}
+
 function appendLine(text) {
-    const line = document.createElement("div");
+    const line = document.createElement("p");
     line.textContent = text;
     output.appendChild(line);
     output.scrollTop = output.scrollHeight;
@@ -81,7 +94,7 @@ input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
         const value = input.value;
         if (value.trim()) {
-            appendLine(`forsp> ${value}`);
+            appendText(`forsp> ${value}`);
         }
         worker.postMessage(value)
         input.value = "";
@@ -95,8 +108,8 @@ worker.onmessage = (e) => {
     const msgs = worker_result[0];
     const err_msgs = worker_result[1];
 
-    msgs.forEach(line => appendLine(line));
-    err_msgs.forEach(line => appendLine(`ERR: ${line}`));
+    msgs.forEach(line => appendText(line));
+    err_msgs.forEach(line => appendText(`ERR: ${line}`));
 }
 
 // Focus terminal on click
