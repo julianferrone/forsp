@@ -54,7 +54,7 @@ macro_rules! sexpr {
 
 impl<T> Into<Vec<T>> for Sexpr<T> {
     fn into(self) -> Vec<T> {
-        let mut stack: Vec<Sexpr<T>> = vec![];
+        let mut stack: Vec<Sexpr<T>> = vec![self];
         let mut result: Vec<T> = vec![];
         while let Some(expr) = stack.pop() {
             match expr {
