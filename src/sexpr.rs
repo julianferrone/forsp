@@ -71,6 +71,17 @@ impl<T> Into<Vec<T>> for Sexpr<T> {
     }
 }
 
+impl<T> Into<Sexpr<T>> for Vec<T> {
+    fn into(self) -> Sexpr<T> {
+        let mut remaining: Vec<T> = self;
+        let mut sexpr: Sexpr<T> = Sexpr::Nil;
+        while let Some(item) = remaining.pop() {
+            sexpr = Sexpr::cons(Sexpr::Single(item), sexpr)
+        }
+        sexpr
+    }
+}
+
 pub struct SexprIter<'a, T> {
     next: Option<&'a Sexpr<T>>,
 }
@@ -234,5 +245,46 @@ mod tests {
         let first: Sexpr<usize> = Sexpr::cons(Sexpr::Single(1), Sexpr::Nil);
         let second: Sexpr<usize> = Sexpr::Nil;
         assert_eq!(Sexpr::extend(first.clone(), second), first);
+    }
+
+    #[test]
+    fn sexpr_into_vec_works() {
+        let sexpr: Sexpr<usize> = Sexpr::cons(
+            Sexpr::Single(1),
+            Sexpr::cons(Sexpr::Single(2), Sexpr::cons(Sexpr::Single(3), Sexpr::Nil)),
+        );
+        let actual: Vec<usize> = sexpr.into();
+        let expected: Vec<usize> = vec![1, 2, 3];
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn vec_into_sexpr_works() {
+        let vec: Vec<usize> = vec![1, 2, 3];
+        let actual: Sexpr<usize> = vec.into();
+        let expected: Sexpr<usize> = Sexpr::cons(
+            Sexpr::Single(1),
+            Sexpr::cons(Sexpr::Single(2), Sexpr::cons(Sexpr::Single(3), Sexpr::Nil)),
+        );
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn vec_into_sexpr_into_vec_works() {
+        let vec: Vec<usize> = vec![1, 2, 3];
+        let sexpr: Sexpr<usize> = vec.clone().into();
+        let vec2: Vec<usize> = sexpr.into();
+        assert_eq!(vec, vec2)
+    }
+
+    #[test]
+    fn sexpr_into_vec_into_sexpr_works() {
+        let sexpr: Sexpr<usize> = Sexpr::cons(
+            Sexpr::Single(1),
+            Sexpr::cons(Sexpr::Single(2), Sexpr::cons(Sexpr::Single(3), Sexpr::Nil)),
+        );
+        let vec: Vec<usize> = sexpr.clone().into();
+        let sexpr2: Sexpr<usize> = vec.into();
+        assert_eq!(sexpr, sexpr2)
     }
 }
