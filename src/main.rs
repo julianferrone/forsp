@@ -25,6 +25,6 @@ fn main() {
             }
             _ => state = state.eval(expr.into()),
         }
-        state = state.flush_messages();
+        state = state.flush_messages_to_stdout();
     }
 }

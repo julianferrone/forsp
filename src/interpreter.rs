@@ -210,7 +210,7 @@ impl State {
 
     ////// Messages
 
-    pub fn flush_messages(self) -> State {
+    pub fn flush_messages_to_stdout(self) -> State {
         self.messages.into_iter().for_each(|msg| println!("{msg}"));
         self.err_messages
             .into_iter()
@@ -220,6 +220,15 @@ impl State {
             err_messages: Sexpr::Nil,
             ..self
         }
+    }
+
+    pub fn flush_messages(self) -> (State, Sexpr<String>, Sexpr<String>) {
+        let state = State {
+            messages: Sexpr::Nil,
+            err_messages: Sexpr::Nil,
+            ..self
+        };
+        (state, self.messages, self.err_messages)
     }
 
     pub fn print(self, msg: impl Into<String>) -> State {
