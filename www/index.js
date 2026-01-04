@@ -13,7 +13,7 @@ function appendText(text) {
         for (var i = 0; i < text.length; i += length) {
             split.push(text.substr(i, length));
         }
-        split.reverse().forEach(line => appendLine(line))
+        split.forEach(line => appendLine(line))
     }
 }
 
