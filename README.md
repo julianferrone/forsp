@@ -32,3 +32,7 @@ python3 -m http.server --bind 127.0.0.1
 - [ ] Add ability to save and load system states as files
 - [ ] Create pipeline to inline all the files into one HTML file
   - I'd like for people to be able to just download one file that they can run on their local computers
+- [ ] Rewrite as bytecode VM
+  - This would be a lot faster than a tree-based interpreter (what this currently is)
+  - We could write the bytecode VM in parallel, and switch over the WASM module to use the VM---the interpreter won't be imported into the module, so it won't bloat out the binary size
+  - Should write lots of tests to ensure that tree interpreter and VM have same output---maybe add property tests somehow? Writing a generator for arbitrary values/commands could be an interesting challenge...
