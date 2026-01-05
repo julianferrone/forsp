@@ -64,10 +64,6 @@ function render() {
 
     rendered.append(cursor);
     rendered.append(document.createTextNode(at ? after : ""));
-
-    // --- horizontal scrolling ---
-    const scrollCols = Math.max(0, pos - INPUT_COLUMNS + 1);
-    rendered.style.transform = `translateX(${-scrollCols}ch)`;
 }
 
 async function run_wasm() {
@@ -94,7 +90,7 @@ input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
         const value = input.value;
         if (value.trim()) {
-            appendText(`forsp> ${value}`);
+            appendLine(`forsp> ${value}`);
         }
         worker.postMessage(value)
         input.value = "";
@@ -108,8 +104,8 @@ worker.onmessage = (e) => {
     const msgs = worker_result[0];
     const err_msgs = worker_result[1];
 
-    msgs.forEach(line => appendText(line));
-    err_msgs.forEach(line => appendText(`ERR: ${line}`));
+    msgs.forEach(line => appendLine(line));
+    err_msgs.forEach(line => appendLine(`ERR: ${line}`));
 }
 
 // Focus terminal on click
