@@ -102,3 +102,4 @@ data Instruction =
   - Should write lots of tests to ensure that tree interpreter and VM have same output---maybe add property tests somehow? Writing a generator for arbitrary values/commands could be an interesting challenge...
 - [ ] Stop user from being able to input commands while REPL is computing a new state
   - Maybe I should allow users to perform a `Ctrl`+`C` command to stop the REPL from executing the current command, and then reset the state to what it was beforehand
+- [ ] Add line number / column number information to Token so that we can output more useful error messages when parsing
