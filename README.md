@@ -55,8 +55,8 @@ python3 -m http.server --bind 127.0.0.1
   - read should pull characters and output Tokens
   - scan should pull Tokens and output a Sexpr<Atom>
     - scan should only do 2 things:
-      1. expand the syntactic special forms `' $ ^`
-      2. collect stuff between parens as a list
+    1. expand the syntactic special forms `' $ ^`
+    2. collect stuff between parens as a list
   - parse should pull Sexpr<Token>s and output an Instruction
     - parse creates the proper AST
 
@@ -66,7 +66,7 @@ In Haskell syntax, these types would look like:
 data Atom = Named String | Num Int 
 
 data Token =
-  TAtom(Atom)
+  TAtom Atom
   | ParenOpen
   | ParenClose
   | Quote
