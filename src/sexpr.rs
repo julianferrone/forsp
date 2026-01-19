@@ -33,123 +33,52 @@ impl Display for Atom {
 
 #[derive(Debug, PartialEq, Clone, Deserialize, Serialize)]
 pub enum Sexpr<T> {
-    Nil,
     Single(T),
-    Pair(Box<Sexpr<T>>, Box<Sexpr<T>>),
-}
-
-#[macro_export]
-macro_rules! sexpr {
-    ([]) => {
-        $crate::sexpr::Sexpr::Nil
-    };
-
-    ([$head:expr $(, $tail:expr)* $(,)?]) => {
-        $crate::sexpr::Sexpr::Pair(
-            Box::new($crate::sexpr::Sexpr::Single($head)),
-            Box::new(sexpr!([$($tail),*])),
-        )
-    };
-}
-
-impl<T> Into<Vec<T>> for Sexpr<T> {
-    fn into(self) -> Vec<T> {
-        let mut stack: Vec<Sexpr<T>> = vec![self];
-        let mut result: Vec<T> = vec![];
-        while let Some(expr) = stack.pop() {
-            match expr {
-                Sexpr::Nil => continue,
-                Sexpr::Single(x) => result.push(x),
-                Sexpr::Pair(car, cdr) => {
-                    // Stack is LIFO, so push cdr first
-                    stack.push(*cdr);
-                    stack.push(*car);
-                }
-            }
-        }
-        result
-    }
-}
-
-impl<T> Into<Sexpr<T>> for Vec<T> {
-    fn into(self) -> Sexpr<T> {
-        let mut remaining: Vec<T> = self;
-        let mut sexpr: Sexpr<T> = Sexpr::Nil;
-        while let Some(item) = remaining.pop() {
-            sexpr = Sexpr::cons(Sexpr::Single(item), sexpr)
-        }
-        sexpr
-    }
-}
-
-pub struct SexprIter<'a, T> {
-    next: Option<&'a Sexpr<T>>,
-}
-
-impl<'a, T> IntoIterator for &'a Sexpr<T> {
-    type Item = &'a Sexpr<T>;
-    type IntoIter = SexprIter<'a, T>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        SexprIter { next: Some(self) }
-    }
-}
-
-impl<'a, T> Iterator for SexprIter<'a, T> {
-    type Item = &'a Sexpr<T>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.next.take()? {
-            Sexpr::Pair(car, cdr) => {
-                self.next = Some(cdr);
-                Some(car)
-            }
-            Sexpr::Nil => None,
-            Sexpr::Single(_) => {
-                // Non-list: stop iteration (or panic if you prefer)
-                None
-            }
-        }
-    }
+    List(Vec<Box<Sexpr<T>>>)
 }
 
 impl<T> Sexpr<T> {
-    pub fn cons(car: Sexpr<T>, cdr: Sexpr<T>) -> Sexpr<T> {
-        Sexpr::Pair(Box::new(car), Box::new(cdr))
+    pub fn nil() -> Sexpr<T> {
+        Sexpr::List(vec![])
+    }
+
+    pub fn cons(item: Sexpr<T>, sexpr: Sexpr<T>) -> Sexpr<T> {
+        match sexpr {
+            Sexpr::Single(cdr) => Sexpr::List(vec![Box::new(sexpr), Box::new(item)]),
+            Sexpr::List(sexprs) => {
+                let mut sexprs = sexprs.clone();
+                sexprs.push(Box::new(item));
+                Sexpr::List(sexprs)
+            }
+        }
+    }
+
+    pub fn to_list(sexpr: Sexpr<T>) -> Sexpr<T> {
+        match sexpr {
+            Sexpr::Single(_) => Sexpr::List(vec![Box::new(sexpr)]),
+            Sexpr::List(_) => sexpr
+        }
     }
 
     pub fn reverse_list(self) -> Sexpr<T> {
-        if let Sexpr::Nil = self {
-            return self;
+        match self {
+            Sexpr::Single(_) => self,
+            Sexpr::List(sexprs) => Sexpr::List(sexprs.into_iter().rev().collect())
         }
-        if let Sexpr::Single(_) = self {
-            return self;
-        }
-        let mut list = self;
-        let mut result = Sexpr::Nil;
-        while let Sexpr::Pair(car, cdr) = list {
-            result = Sexpr::cons(*car, result);
-            list = *cdr;
-        }
-        result
     }
 
     pub fn extend(first: Sexpr<T>, second: Sexpr<T>) -> Sexpr<T> {
-        let mut first = first.reverse_list();
-        let mut result = second;
-        loop {
-            match first {
-                Sexpr::Nil => break,
-                Sexpr::Single(_) => {
-                    result = Sexpr::cons(first, result);
-                    break;
-                }
-                Sexpr::Pair(car, cdr) => {
-                    result = Sexpr::Pair(car, Box::new(result));
-                    first = *cdr;
-                }
+        let mut result: Vec<Box<Sexpr<T>>> = match second {
+            Sexpr::Single(_) => vec![Box::new(second)],
+            Sexpr::List(sexprs) => sexprs
+        };
+        
+        match first {
+            Sexpr::Single(_) => result = Sexpr::cons(first, result),
+            Sexpr::List(first_sexprs) => {
+                result.extend(first_sexprs);
             }
-        }
+        };
         result
     }
 }
@@ -157,66 +86,36 @@ impl<T> Sexpr<T> {
 impl<T: Clone> Sexpr<T> {
     pub fn car(sexpr: &Sexpr<T>) -> Result<Sexpr<T>, String> {
         match sexpr {
-            Sexpr::Pair(car, _cdr) => Ok((**car).clone()),
-            _ => Err("car expects Sexpr::Pair".into()),
+            Sexpr::List(items) => {
+                items
+                    .split_first()
+                    .map(|(car, _cdr): (&T, &[T])| car.to_owned())
+                    .ok_or("car expects non-empty Sexpr::List")
+            },
+            _ => Err("car expects Sexpr::List".into()),
         }
     }
 
     pub fn cdr(sexpr: &Sexpr<T>) -> Result<Sexpr<T>, String> {
         match sexpr {
-            Sexpr::Pair(_car, cdr) => Ok((**cdr).clone()),
-            _ => Err("cdr expects Sexpr::Pair".into()),
+            Sexpr::List(items) => {
+                items
+                    .split_first()
+                    .map(|(_car, cdr): (&T, &[T])| cdr.to_owned())
+                    .ok_or("car expects non-empty Sexpr::List")
+            },
+            _ => Err("car expects Sexpr::List".into()),
         }
     }
 }
 
-enum Task<'a, T> {
-    PrintSexpr(&'a Sexpr<T>),
-    PrintStr(&'static str),
-}
-
 impl<T: Display> Display for Sexpr<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut stack: Vec<Task<T>> = Vec::new();
-        stack.push(Task::PrintSexpr(self));
-
-        while let Some(task) = stack.pop() {
-            match task {
-                Task::PrintSexpr(obj) => match obj {
-                    Sexpr::Nil => write!(f, "()")?,
-                    Sexpr::Single(inner) => write!(f, "{}", inner)?,
-                    Sexpr::Pair(_car, _cdr) => {
-                        stack.push(Task::PrintStr(")"));
-
-                        let mut cur = obj;
-                        let mut elems: Vec<&Sexpr<T>> = Vec::new();
-
-                        loop {
-                            match cur {
-                                Sexpr::Pair(car, cdr) => {
-                                    elems.push(car);
-                                    cur = cdr;
-                                }
-                                Sexpr::Nil => break,
-                                tail => {
-                                    stack.push(Task::PrintSexpr(&tail));
-                                    stack.push(Task::PrintStr(" . "));
-                                    break;
-                                }
-                            }
-                        }
-
-                        for (i, e) in elems.iter().rev().enumerate() {
-                            if i > 0 {
-                                stack.push(Task::PrintStr(" "));
-                            }
-                            stack.push(Task::PrintSexpr(e));
-                        }
-
-                        stack.push(Task::PrintStr("("));
-                    }
-                },
-                Task::PrintStr(s) => write!(f, "{s}")?,
+        match self {
+            Sexpr::Single(item) => write!(f, "{}", item),
+            Sexpr::List(items) => {
+                let items: String = items.iter().map(|item: Box<Sexpr<T>>| item.to_string()).join(" ");
+                write!(f, "({})", items);
             }
         }
         Ok(())
@@ -231,60 +130,60 @@ mod tests {
     fn extend_first_single_works() {
         let first: Sexpr<usize> = Sexpr::Single(1);
         let second: Sexpr<usize> =
-            Sexpr::cons(Sexpr::Single(2), Sexpr::cons(Sexpr::Single(3), Sexpr::Nil));
+            Sexpr::cons(Sexpr::Single(2), Sexpr::cons(Sexpr::Single(3), Sexpr::nil()));
 
         let expected: Sexpr<usize> = Sexpr::cons(
             Sexpr::Single(1),
-            Sexpr::cons(Sexpr::Single(2), Sexpr::cons(Sexpr::Single(3), Sexpr::Nil)),
+            Sexpr::cons(Sexpr::Single(2), Sexpr::cons(Sexpr::Single(3), Sexpr::nil())),
         );
         assert_eq!(Sexpr::extend(first, second), expected);
     }
 
     #[test]
     fn extend_second_nil_works() {
-        let first: Sexpr<usize> = Sexpr::cons(Sexpr::Single(1), Sexpr::Nil);
-        let second: Sexpr<usize> = Sexpr::Nil;
+        let first: Sexpr<usize> = Sexpr::cons(Sexpr::Single(1), Sexpr::nil());
+        let second: Sexpr<usize> = Sexpr::nil();
         assert_eq!(Sexpr::extend(first.clone(), second), first);
     }
 
-    #[test]
-    fn sexpr_into_vec_works() {
-        let sexpr: Sexpr<usize> = Sexpr::cons(
-            Sexpr::Single(1),
-            Sexpr::cons(Sexpr::Single(2), Sexpr::cons(Sexpr::Single(3), Sexpr::Nil)),
-        );
-        let actual: Vec<usize> = sexpr.into();
-        let expected: Vec<usize> = vec![1, 2, 3];
-        assert_eq!(actual, expected);
-    }
-
-    #[test]
-    fn vec_into_sexpr_works() {
-        let vec: Vec<usize> = vec![1, 2, 3];
-        let actual: Sexpr<usize> = vec.into();
-        let expected: Sexpr<usize> = Sexpr::cons(
-            Sexpr::Single(1),
-            Sexpr::cons(Sexpr::Single(2), Sexpr::cons(Sexpr::Single(3), Sexpr::Nil)),
-        );
-        assert_eq!(actual, expected);
-    }
-
-    #[test]
-    fn vec_into_sexpr_into_vec_works() {
-        let vec: Vec<usize> = vec![1, 2, 3];
-        let sexpr: Sexpr<usize> = vec.clone().into();
-        let vec2: Vec<usize> = sexpr.into();
-        assert_eq!(vec, vec2)
-    }
-
-    #[test]
-    fn sexpr_into_vec_into_sexpr_works() {
-        let sexpr: Sexpr<usize> = Sexpr::cons(
-            Sexpr::Single(1),
-            Sexpr::cons(Sexpr::Single(2), Sexpr::cons(Sexpr::Single(3), Sexpr::Nil)),
-        );
-        let vec: Vec<usize> = sexpr.clone().into();
-        let sexpr2: Sexpr<usize> = vec.into();
-        assert_eq!(sexpr, sexpr2)
-    }
+//    #[test]
+//    fn sexpr_into_vec_works() {
+//        let sexpr: Sexpr<usize> = Sexpr::cons(
+//            Sexpr::Single(1),
+//            Sexpr::cons(Sexpr::Single(2), Sexpr::cons(Sexpr::Single(3), Sexpr::nil())),
+//        );
+//        let actual: Vec<usize> = sexpr.into();
+//        let expected: Vec<usize> = vec![1, 2, 3];
+//        assert_eq!(actual, expected);
+//    }
+//
+//    #[test]
+//    fn vec_into_sexpr_works() {
+//        let vec: Vec<usize> = vec![1, 2, 3];
+//        let actual: Sexpr<usize> = vec.into();
+//        let expected: Sexpr<usize> = Sexpr::cons(
+//            Sexpr::Single(1),
+//            Sexpr::cons(Sexpr::Single(2), Sexpr::cons(Sexpr::Single(3), Sexpr::nil())),
+//        );
+//        assert_eq!(actual, expected);
+//    }
+//
+//    #[test]
+//    fn vec_into_sexpr_into_vec_works() {
+//        let vec: Vec<usize> = vec![1, 2, 3];
+//        let sexpr: Sexpr<usize> = vec.clone().into();
+//        let vec2: Vec<usize> = sexpr.into();
+//        assert_eq!(vec, vec2)
+//    }
+//
+//    #[test]
+//    fn sexpr_into_vec_into_sexpr_works() {
+//        let sexpr: Sexpr<usize> = Sexpr::cons(
+//            Sexpr::Single(1),
+//            Sexpr::cons(Sexpr::Single(2), Sexpr::cons(Sexpr::Single(3), Sexpr::nil())),
+//        );
+//        let vec: Vec<usize> = sexpr.clone().into();
+//        let sexpr2: Sexpr<usize> = vec.into();
+//        assert_eq!(sexpr, sexpr2)
+//    }
 }
