@@ -333,8 +333,6 @@ impl State {
         }
     }
 
-    const QUOTE: &str = "quote";
-
     pub fn compute(self, program: Sexpr<Value>) -> State {
         match program {
             Sexpr::Single(obj) => return self.eval(obj),
@@ -346,7 +344,7 @@ impl State {
                         Some(cmd_box) => {
                             let cmd_value: Value = (*cmd_box.clone()).into();
                             match cmd_value {
-                                Value::Atom(Atom::Name(QUOTE)) => {
+                                Value::Atom(Atom::Name(name)) if name == "quote" => {
                                     match comp.pop().to_owned() {
                                         Some(to_quote) => {
                                             let quoted: Value = (*to_quote).into();
