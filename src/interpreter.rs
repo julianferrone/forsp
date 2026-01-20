@@ -434,9 +434,9 @@ impl State {
     pub fn eval_instruction(self, instruction: Instruction) -> State {
         let state = self.clone();
         match instruction {
+            Instruction::AddValue(value) => state.push(value),
             Instruction::Call(func_name) => todo!(),
             Instruction::Primitive(primitive) => todo!(),
-            Instruction::AddValue(value) => todo!()
         }
     }
 }
@@ -674,6 +674,15 @@ mod tests {
             Value::Atom(Atom::Num(1)),
             Value::cons(Value::Atom(Atom::Num(2)), Value::nil()),
         );
+        assert_eq!(result, expected)
+    }
+
+    #[test]
+    fn run_add_value_instruction() {
+        let expected = Value::Atom(Atom::Num(1));
+        let instruction = Instruction::AddValue(expected.clone());
+        let state = State::new().eval_instruction(instruction);
+        let (result, _state) = state.pop().expect("Should be Ok");
         assert_eq!(result, expected)
     }
 }
