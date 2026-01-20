@@ -357,7 +357,7 @@ mod tests {
     //////////               Test Reader              //////////
 
     #[test]
-    fn read_list() {
+    fn read_num_list() {
         let program = read(scan("(1 2 3)")).unwrap();
         let line = Sexpr::car(&program).expect("Program should have at least one line");
         let expected = Sexpr::cons(
@@ -370,6 +370,19 @@ mod tests {
         assert_eq!(line, expected)
     }
 
+    #[test]
+    fn read_name_list() {
+        let program = read(scan("(a b c)")).unwrap();
+        let line = Sexpr::car(&program).expect("Program should have at least one line"); 
+        let expected = Sexpr::cons(
+            Sexpr::Single(Atom::Name("a".into())),
+            Sexpr::cons(
+                Sexpr::Single(Atom::Name("b".into())),
+                Sexpr::cons(Sexpr::Single(Atom::Name("c".into())), Sexpr::nil()),
+            ),
+        );
+        assert_eq!(line, expected)
+    }
     #[test]
     fn reading_force() {
         let program = read(scan("($x x)")).unwrap();
