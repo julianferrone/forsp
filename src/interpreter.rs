@@ -165,7 +165,7 @@ fn default_env() -> Env {
     let env = env_define_prim(env, "cons", Primitive::Cons);
     let env = env_define_prim(env, "car", Primitive::Car);
     let env = env_define_prim(env, "cdr", Primitive::Cdr);
-    let env = env_define_prim(env, "eq", Primitive::Eq);
+    let env = env_define_prim(env, "eq", Primitive::Equals);
     let env = env_define_prim(env, "cswap", Primitive::Cswap);
     let env = env_define_prim(env, "print", Primitive::Print);
 
@@ -449,7 +449,7 @@ impl State {
 pub enum Primitive {
     Push,
     Pop,
-    Eq,
+    Equals,
     Cons,
     Car,
     Cdr,
@@ -468,7 +468,7 @@ fn get_primitive_function(primitive: Primitive) -> fn(State, Env) -> Result<Stat
     match primitive {
         Primitive::Push => prim_push,
         Primitive::Pop => prim_pop,
-        Primitive::Eq => prim_eq,
+        Primitive::Equals => prim_eq,
         Primitive::Cons => prim_cons,
         Primitive::Car => prim_car,
         Primitive::Cdr => prim_cdr,
