@@ -414,6 +414,14 @@ mod tests {
     }
 
     #[test]
+    fn test_display_swap() {
+        check_display(
+            "($x $y ^x ^y) $swap",
+            "((quote x pop quote y pop quote x push quote y push) quote swap pop)",
+        );
+    }
+
+    #[test]
     fn test_display_tree() {
         check_display("(a b) (c d)", "((a b) (c d))");
     }
