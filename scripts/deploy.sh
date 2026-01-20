@@ -11,6 +11,7 @@ fi
 : "${DEPLOY_HOST:?DEPLOY_HOST not set}"
 : "${DEPLOY_PATH:?DEPLOY_PATH not set}"
 
+./build.sh
 rsync --delete --archive www/ "${DEPLOY_HOST}:${DEPLOY_PATH}"
 
 echo "Uploaded files to VPS."
