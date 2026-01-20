@@ -238,14 +238,19 @@ impl Display for Message {
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct State {
-    pub stack: Value,
+    pub stack: Vec<Value>,
     pub env: Env,
     pub messages: Vec<Message>,
 }
 
 impl Display for State {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "STATE<{} {}>", self.stack, env_to_value(&self.env))
+        write!(
+            f, 
+            "STATE<{} {}>", 
+            Sexpr::from_vec(self.stack.clone()), 
+            env_to_value(&self.env)
+        )
     }
 }
 
@@ -253,7 +258,7 @@ impl State {
     pub fn new() -> State {
         // Core primitives
         State {
-            stack: Value::nil(),
+            stack: vec![],
             env: default_env(),
             messages: vec![],
         }
@@ -310,22 +315,22 @@ impl State {
     //////////         Value Stack Operations         //////////
 
     fn push(self, object: Value) -> State {
+        let mut stack = self.stack.clone();
+        stack.push(object);
         State {
-            stack: Value::cons(object, self.stack),
+            stack: stack,
             ..self
         }
     }
 
     fn pop(self) -> Result<(Value, State), String> {
-        if let Value::Sexpr(stack) = self.stack {
-            let (first, rest) = Sexpr::split(&*stack)?;
-            let state = State {
-                stack: rest.into(),
-                ..self
-            };
-            Ok((first.into(), state))
-        } else {
-            Err("pop expects stack to be a Value::Sexpr".to_owned())
+        let mut stack = self.stack.clone();
+        match stack.pop() {
+            Some(value) => {
+                let state = State {stack: stack, ..self};
+                Ok((value, state))
+            },
+            None => Err("pop expects stack to be non-empty".into())
         }
     }
 
@@ -389,33 +394,6 @@ impl State {
                 }
             }
         }
-        // match comp {
-        //     Sexpr::Nil => return state,
-        //     Sexpr::Single(obj) => return state.eval(obj),
-        //     Sexpr::Pair(ref cmd_box, ref rest_box) => {
-        //         let rest = *rest_box.clone();
-        //         let cmd_value: Value = (*cmd_box.clone()).into();
-
-        //         if let Value::Atom(Atom::Name(ref name)) = cmd_value {
-        //             if name == "quote" {
-        //                 match rest {
-        //                     Sexpr::Pair(quoted, tail) => {
-        //                         let quoted: Value = (*quoted).into();
-        //                         state = state.push(quoted);
-        //                         comp = *tail;
-        //                         continue;
-        //                     }
-        //                     _ => {
-        //                         state = state.eprint("quote expects an argument");
-        //                         continue;
-        //                     }
-        //                 }
-        //             }
-        //         }
-        //         state = state.eval(cmd_value);
-        //         comp = rest;
-        //     }
-        // }
     }
 
     pub fn eval(self, expr: Value) -> State {
@@ -453,14 +431,13 @@ impl State {
         }
     }
 
-    pub fn eval_instruction_mut(&mut self, instruction: Instruction) {
-        todo!();
-    }
-
     pub fn eval_instruction(self, instruction: Instruction) -> State {
-        let mut vm_new = self.clone();
-        vm_new.eval_instruction_mut(instruction);
-        vm_new
+        let state = self.clone();
+        match instruction {
+            Instruction::Call(func_name) => todo!(),
+            Instruction::Primitive(primitive) => todo!(),
+            Instruction::AddValue(value) => todo!()
+        }
     }
 }
 
@@ -603,7 +580,7 @@ fn prim_help(state: State, _env: Env) -> Result<State, String> {
 //////////            Extra Primitives            //////////.
 
 fn prim_stack(state: State, _env: Env) -> Result<State, String> {
-    let stack = state.stack.clone();
+    let stack = Sexpr::from_vec(state.stack.clone()).into();
     Ok(state.push(stack))
 }
 
