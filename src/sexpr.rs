@@ -49,6 +49,13 @@ impl<T> Sexpr<T> {
         }
     }
 
+    pub fn from_vec(vec: Vec<T>) -> Sexpr<T> {
+        let items: Vec<Box<Sexpr<T>>> = vec.into_iter()
+            .map(|item| Box::new(Sexpr::Single(item)))
+            .collect();
+        Sexpr::List(items)
+    }
+
     pub fn reverse_list(self) -> Sexpr<T> {
         match self {
             Sexpr::Single(_) => self,
