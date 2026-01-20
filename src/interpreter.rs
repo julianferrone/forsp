@@ -6,9 +6,15 @@ use crate::sexpr;
 use crate::sexpr::{Atom, Sexpr};
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct Closure {
+    instructions: Box<Value>,
+    env: Env
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum Value {
     Atom(Atom),
-    Closure(Box<Value>, Env),
+    Closure(Closure),
     Primitive(Primitive),
     Sexpr(Box<Sexpr<Value>>),
 }
@@ -26,7 +32,10 @@ impl Value {
     }
 
     fn make_closure(body: Value, env: Env) -> Value {
-        Value::Closure(Box::new(body),env)
+        Value::Closure(Closure {
+            instructions: Box::new(body),
+            env: env
+        })
     }
 
     fn cons(car: Value, cdr: Value) -> Value {
@@ -113,7 +122,10 @@ impl std::fmt::Display for Value {
             match task {
                 Task::PrintObject(obj) => match obj {
                     Value::Atom(name) => write!(f, "{name}")?,
-                    Value::Closure(body, _env) => {
+                    Value::Closure(Closure {
+                        instructions: body, 
+                        env: _env
+                    }) => {
                         stack.push(Task::PrintStr(">"));
                         stack.push(Task::PrintObject(body));
                         stack.push(Task::PrintStr("CLOSURE<"));
@@ -408,7 +420,10 @@ impl State {
                     match value {
                         Ok(Value::Primitive(func)) => self.apply_primitive(func),
 
-                        Ok(Value::Closure(body, closure_env)) => {
+                        Ok(Value::Closure(Closure {
+                            instructions: body, 
+                            env: closure_env
+                        })) => {
                             let saved_env = self.env.clone();
 
                             let state = self.with_env(closure_env).compute((*body).into());
