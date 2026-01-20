@@ -88,7 +88,7 @@ impl<T: Clone> Sexpr<T> {
         match sexpr {
             Sexpr::List(items) => {
                 items
-                    .split_first()
+                    .split_last()
                     .map(|(car, _cdr)| *car.to_owned())
                     .ok_or("car expects non-empty Sexpr::List".to_owned())
             },
@@ -100,7 +100,7 @@ impl<T: Clone> Sexpr<T> {
         match sexpr {
             Sexpr::List(items) => {
                 items
-                    .split_first()
+                    .split_last()
                     .map(|(_car, cdr)| {
                         let cdr: Vec<Box<Sexpr<T>>> = cdr.to_vec();
                         Sexpr::List(cdr)
@@ -115,7 +115,7 @@ impl<T: Clone> Sexpr<T> {
         match sexpr {
             Sexpr::List(items) => {
                 items
-                    .split_first()
+                    .split_last()
                     .map(|(car, cdr)| {
                         let car: Sexpr<T> = *car.to_owned();
                         let cdr: Vec<Box<Sexpr<T>>> = cdr.to_vec();
@@ -149,7 +149,7 @@ mod tests {
     use crate::sexpr::Sexpr;
 
     #[test]
-    fn extend_first_single_works() {
+    fn extend_first_single() {
         let first: Sexpr<usize> = Sexpr::Single(1);
         let second: Sexpr<usize> =
             Sexpr::cons(Sexpr::Single(2), Sexpr::cons(Sexpr::Single(3), Sexpr::nil()));
@@ -162,12 +162,49 @@ mod tests {
     }
 
     #[test]
-    fn extend_second_nil_works() {
+    fn extend_second_nil() {
         let first: Sexpr<usize> = Sexpr::cons(Sexpr::Single(1), Sexpr::nil());
         let second: Sexpr<usize> = Sexpr::nil();
         assert_eq!(Sexpr::extend(first.clone(), second), first);
     }
 
+    #[test]
+    fn cons_then_car() {
+        let first: Sexpr<usize> = Sexpr::Single(1);
+        let rest: Sexpr<usize> = Sexpr::cons(
+            Sexpr::Single(2), 
+            Sexpr::cons(Sexpr::Single(3), Sexpr::nil())
+        );
+        let consed = Sexpr::cons(first.clone(), rest);
+        assert_eq!(Sexpr::car(&consed).expect("Car should succeed"), first);
+    }
+
+    #[test]
+    fn cons_then_cdr() {
+        let first: Sexpr<usize> = Sexpr::Single(1);
+        let rest: Sexpr<usize> = Sexpr::cons(
+            Sexpr::Single(2), 
+            Sexpr::cons(Sexpr::Single(3), Sexpr::nil())
+        );
+        let consed = Sexpr::cons(first, rest.clone());
+        assert_eq!(Sexpr::cdr(&consed).expect("Car should succeed"), rest);
+    }
+
+    #[test]
+    fn split_list() {
+        let expected_first: Sexpr<usize> = Sexpr::Single(1);
+        let expected_rest: Sexpr<usize> = Sexpr::cons(
+            Sexpr::Single(2),
+            Sexpr::cons(
+                Sexpr::Single(3),
+                Sexpr::nil()
+            )
+        );
+        let list = Sexpr::cons(expected_first.clone(), expected_rest.clone());
+        let (first, rest) = Sexpr::split(&list).expect("Should split");
+        assert_eq!(first, expected_first);
+        assert_eq!(rest, expected_rest);
+    }
 //    #[test]
 //    fn sexpr_into_vec_works() {
 //        let sexpr: Sexpr<usize> = Sexpr::cons(

@@ -486,7 +486,8 @@ fn prim_pop(state: State, env: Env) -> Result<State, String> {
         let env = env_define(env, name, value);
         Ok(State {env: env, ..state })
     } else {
-        Err("prim_pop expects the top of the stack to be Value::Atom(Atom::Name)".to_owned())
+        let msg = format!("prim_pop expects the top of the stack to be Value::Atom(Atom::Name), got {key:?}");
+        Err(msg)
     }
 }
 
@@ -634,6 +635,17 @@ mod tests {
         let state = interpret_from_new("'a");
         let (result, _state) = state.pop().expect("Should be Ok");
         assert_eq!(result, Value::Atom(Atom::Name("a".into())))
+    }
+
+    #[test]
+    fn run_pop2() {
+        let state = interpret_from_new("1 2");
+        let (result, _state) = state.pop2().expect("Should be Ok");
+        let expected = (
+            Value::Atom(Atom::Num(2)),
+            Value::Atom(Atom::Num(1))
+        );
+        assert_eq!(result, expected) 
     }
 
     #[test]
