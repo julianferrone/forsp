@@ -220,7 +220,7 @@ mod tests {
     //////////              Test Scanner              //////////
 
     #[test]
-    fn test_scan_drop() {
+    fn scan_drop() {
         assert_eq!(
             scan("($x) $drop"),
             vec![
@@ -236,7 +236,7 @@ mod tests {
     }
 
     #[test]
-    fn test_scan_force() {
+    fn scan_force() {
         assert_eq!(
             scan("($x x) $force"),
             vec![
@@ -254,7 +254,7 @@ mod tests {
     }
 
     #[test]
-    fn test_scan_dup() {
+    fn scan_dup() {
         assert_eq!(
             scan("($x ^x ^x) $dup"),
             vec![
@@ -276,7 +276,7 @@ mod tests {
     }
 
     #[test]
-    fn test_scan_plus() {
+    fn scan_plus() {
         assert_eq!(
             scan("(0 swap - -) $+"),
             vec![
@@ -297,7 +297,7 @@ mod tests {
     }
 
     #[test]
-    fn test_scan_nil() {
+    fn scan_nil() {
         assert_eq!(
             scan("('()) $nil"),
             vec![
@@ -314,7 +314,7 @@ mod tests {
     }
 
     #[test]
-    fn test_scan_newline() {
+    fn scan_newline() {
         assert_eq!(
             scan(
                 "4 3
@@ -334,7 +334,7 @@ mod tests {
     }
 
     #[test]
-    fn test_reverse_list() {
+    fn reverse_list() {
         let list = Sexpr::cons(
             Sexpr::Single(Atom::Num(3)),
             Sexpr::cons(
@@ -357,7 +357,7 @@ mod tests {
     //////////               Test Reader              //////////
 
     #[test]
-    fn test_read_list() {
+    fn read_list() {
         let program = read(scan("(1 2 3)")).unwrap();
         let line = Sexpr::car(&program).expect("Program should have at least one line");
         let expected = Sexpr::cons(
@@ -371,7 +371,7 @@ mod tests {
     }
 
     #[test]
-    fn test_reading_force() {
+    fn reading_force() {
         let program = read(scan("($x x)")).unwrap();
         let line = Sexpr::car(&program).expect("Program should have at least one line");
         let expected = Sexpr::cons(
@@ -396,17 +396,17 @@ mod tests {
     }
 
     #[test]
-    fn test_display_pair() {
+    fn display_pair() {
         check_display("x y z", "(x y z)");
     }
 
     #[test]
-    fn test_display_force() {
+    fn display_force() {
         check_display("$x x", "(quote x pop x)");
     }
 
     #[test]
-    fn test_display_dup() {
+    fn display_dup() {
         check_display(
             "($x ^x ^x) $dup",
             "((quote x pop quote x push quote x push) quote dup pop)",
@@ -414,7 +414,7 @@ mod tests {
     }
 
     #[test]
-    fn test_display_swap() {
+    fn display_swap() {
         check_display(
             "($x $y ^x ^y) $swap",
             "((quote x pop quote y pop quote x push quote y push) quote swap pop)",
@@ -422,37 +422,37 @@ mod tests {
     }
 
     #[test]
-    fn test_display_tree() {
+    fn display_tree() {
         check_display("(a b) (c d)", "((a b) (c d))");
     }
 
     #[test]
-    fn test_quote_foo() {
+    fn quote_foo() {
         check_display("'foo", "(quote foo)");
     }
 
     #[test]
-    fn test_bind_bar() {
+    fn bind_bar() {
         check_display("$bar", "(quote bar pop)");
     }
 
     #[test]
-    fn test_resolve_baz() {
+    fn resolve_baz() {
         check_display("^baz", "(quote baz push)");
     }
 
     #[test]
-    fn test_quote_list() {
+    fn quote_list() {
         check_display("'(1 2 3)", "(quote (1 2 3))");
     }
 
     #[test]
-    fn test_resolve_list() {
+    fn resolve_list() {
         check_display("$(1 2 3)", "(quote (1 2 3) pop)");
     }
 
     #[test]
-    fn test_bind_list() {
+    fn bind_list() {
         check_display("^(1 2 3)", "(quote (1 2 3) push)");
     }
 }

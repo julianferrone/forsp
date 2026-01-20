@@ -623,14 +623,14 @@ mod tests {
     }
 
     #[test]
-    fn test_interpret_put() {
+    fn interpret_put() {
         let state = interpret_from_new("1");
         let (result, _state) = state.pop().expect("Should be Ok");
         assert_eq!(result, Value::Atom(Atom::Num(1)))
     }
 
     #[test]
-    fn test_compute_swap() {
+    fn compute_swap() {
         let state = interpret_from_new("($x $y ^x ^y) $swap 1 2 swap stack");
         let (result, _state) = state.pop().expect("Should be Ok");
         let expected = Value::cons(
