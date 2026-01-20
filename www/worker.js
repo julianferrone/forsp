@@ -14,8 +14,7 @@ async function init_wasm_in_worker() {
         var result = repl_js(state, event.data);
         state = result[0];
         msgs = result[1];
-        errors = result[2];
-        postMessage([msgs, errors]);
+        postMessage(msgs);
     }
 }
 

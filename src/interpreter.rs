@@ -195,32 +195,33 @@ fn env_to_value(env: &Env) -> Value {
     Value::Sexpr(Box::new(Sexpr::List(sexprs)))
 }
 
-// enum MessageType {
-//     Error,
-//     Output
-// }
-// 
-// struct Message {
-//     typ: MessageType
-//     msg: String
-// }
-// 
-// impl Display for Message {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         let typ = match self.typ {
-//             MessageType::Error => "ERR: ",
-//             MessageType::Output => "",
-//         }
-//         write!(f, "{typ}{msg}")
-//     }
-// }
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub enum MessageType {
+    Error,
+    Output
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct Message {
+    pub typ: MessageType,
+    pub msg: String
+}
+
+impl Display for Message {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let typ = match self.typ {
+            MessageType::Error => "ERR: ",
+            MessageType::Output => "",
+        };
+        write!(f, "{}{}", typ, self.msg)
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct State {
     pub stack: Value,
     pub env: Env,
-    pub messages: Vec<String>,
-    pub err_messages: Vec<String>,
+    pub messages: Vec<Message>,
 }
 
 impl Display for State {
@@ -236,7 +237,6 @@ impl State {
             stack: Value::nil(),
             env: default_env(),
             messages: vec![],
-            err_messages: vec![],
         }
     }
 
@@ -244,32 +244,31 @@ impl State {
 
     pub fn flush_messages_to_stdout(self) -> State {
         self.messages.into_iter().for_each(|msg| println!("{msg}"));
-        self.err_messages
-            .into_iter()
-            .for_each(|msg| eprintln!("ERROR: {msg}"));
         State {
             messages: vec![], 
-            err_messages: vec![],
             ..self
         }
     }
 
-    pub fn flush_messages(self) -> (State, Vec<String>, Vec<String>) {
+    pub fn flush_messages(self) -> (State, Vec<String>) {
         let state = State {
             messages: vec![],
-            err_messages: vec![],
             ..self
         };
-        (
-            state,
-            self.messages,
-            self.err_messages,
-        )
+        let messages: Vec<String> = self.messages
+            .into_iter()
+            .map(|msg| msg.to_string())
+            .collect();
+        (state, messages)
     }
 
     pub fn print(self, msg: impl Into<String>) -> State {
         let mut messages = self.messages.clone();
-        messages.push(msg.into());
+        let msg = Message {
+            typ: MessageType::Output,
+            msg: msg.into(),
+        };
+        messages.push(msg);
         State {
             messages: messages,
             ..self
@@ -277,10 +276,14 @@ impl State {
     }
 
     pub fn eprint(self, msg: impl Into<String>) -> State {
-        let mut err_messages = self.err_messages.clone();
-        err_messages.push(msg.into());
+        let mut messages = self.messages.clone();
+        let msg = Message {
+            typ: MessageType::Error,
+            msg: msg.into(),
+        };
+        messages.push(msg);
         State {
-            err_messages: err_messages,
+            messages: messages,
             ..self
         }
     }
@@ -327,8 +330,8 @@ impl State {
         match func(self.clone(), env) {
             Ok(state) => state,
             Err(err) => {
-                eprintln!("ERROR: applying primitive: {err}");
-                self
+                let state = self.eprint(format!("applying primitive: {err}"));
+                state
             }
         }
     }
@@ -533,10 +536,11 @@ fn prim_cswap(state: State, _env: Env) -> Result<State, String> {
 fn prim_print(state: State, _env: Env) -> Result<State, String> {
     let (top, state) = state.pop()?;
     let mut messages = state.messages;
-    messages.push(format!("{top}"));
+    messages.push(Message {
+        typ: MessageType::Output,
+        msg: top.to_string()
+    });
     
-    // let messages = Sexpr::cons(Sexpr::Single(format!("{}", top)), state.messages);
-
     Ok(State {
         messages: messages,
         ..state
@@ -548,9 +552,14 @@ const HELP: &str = include_str!("help.txt");
 fn prim_help(state: State, _env: Env) -> Result<State, String> {
     let help_messages = HELP
         .lines()
-        .map(|line| line.to_owned())
+        .map(|line| {
+            Message {
+                typ: MessageType::Output,
+                msg: line.to_owned()
+            }
+        })
         .rev()
-        .collect::<Vec<String>>();
+        .collect::<Vec<Message>>();
     let mut messages = state.messages;
     messages.extend(help_messages);
     Ok(State {

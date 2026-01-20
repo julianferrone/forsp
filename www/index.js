@@ -99,13 +99,9 @@ input.addEventListener("keydown", (e) => {
 });
 
 worker.onmessage = (e) => {
-    const worker_result = e.data;
-    console.log(`Message received from worker: ${worker_result}`);
-    const msgs = worker_result[0];
-    const err_msgs = worker_result[1];
-
+    const msgs = e.data;
+    console.log(`Message received from worker: ${msgs}`);
     msgs.forEach(line => appendLine(line));
-    err_msgs.forEach(line => appendLine(`ERR: ${line}`));
 }
 
 // Focus terminal on click

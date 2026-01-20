@@ -4,7 +4,7 @@ mod interpreter;
 mod parser;
 mod sexpr;
 
-use crate::interpreter::{State, Value};
+use crate::interpreter::{MessageType, Message, State, Value};
 use crate::parser::{read, scan};
 use crate::sexpr::Sexpr;
 
@@ -14,7 +14,7 @@ pub fn new_state() -> JsValue {
     serde_wasm_bindgen::to_value(&state).expect("Should be able to serialize new state via serde")
 }
 
-pub fn repl(state: State, user_input: &str) -> (State, Vec<String>, Vec<String>) {
+pub fn repl(state: State, user_input: &str) -> (State, Vec<String>) {
     let parsed = read(scan(user_input));
     match parsed {
         Ok(atoms) => {
@@ -22,7 +22,11 @@ pub fn repl(state: State, user_input: &str) -> (State, Vec<String>, Vec<String>)
             return state.compute(exprs).flush_messages();
         }
         Err(err) => {
-            return (state, vec![], vec![err])
+            let err = Message {
+                typ: MessageType::Error,
+                msg: err.into()
+            }.to_string();
+            return (state, vec![err])
         }
     }
 }
