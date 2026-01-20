@@ -1,4 +1,5 @@
 use crate::sexpr::{Atom, Sexpr};
+use crate::interpreter::Instruction;
 use std::collections::VecDeque;
 
 ////////////////////////////////////////////////////////////
@@ -205,6 +206,10 @@ pub fn read(mut tokens: VecDeque<Token>) -> Result<Sexpr<Atom>, String> {
         .rev_items
         .reverse_list();
     Ok(result)
+}
+
+pub fn parse(atoms: Sexpr<Atom>) -> Result<Vec<Instruction>, String> {
+    todo!();
 }
 
 ////////////////////////////////////////////////////////////

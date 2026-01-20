@@ -6,6 +6,13 @@ use crate::sexpr;
 use crate::sexpr::{Atom, Sexpr};
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub enum Instruction {
+    Call(String),
+    Primitive(Primitive),
+    AddValue(Value)
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Closure {
     instructions: Box<Value>,
     env: Env
@@ -444,6 +451,16 @@ impl State {
 
             other => self.push(other),
         }
+    }
+
+    pub fn eval_instruction_mut(&mut self, instruction: Instruction) {
+        todo!();
+    }
+
+    pub fn eval_instruction(self, instruction: Instruction) -> State {
+        let mut vm_new = self.clone();
+        vm_new.eval_instruction_mut(instruction);
+        vm_new
     }
 }
 
