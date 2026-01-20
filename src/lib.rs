@@ -14,7 +14,7 @@ pub fn new_state() -> JsValue {
     serde_wasm_bindgen::to_value(&state).expect("Should be able to serialize new state via serde")
 }
 
-pub fn repl(state: State, user_input: &str) -> (State, Sexpr<String>, Sexpr<String>) {
+pub fn repl(state: State, user_input: &str) -> (State, Vec<String>, Vec<String>) {
     let parsed = read(scan(user_input));
     match parsed {
         Ok(atoms) => {
@@ -22,11 +22,7 @@ pub fn repl(state: State, user_input: &str) -> (State, Sexpr<String>, Sexpr<Stri
             return state.compute(exprs).flush_messages();
         }
         Err(err) => {
-            return (
-                state,
-                Sexpr::Nil,
-                Sexpr::cons(Sexpr::Single(err), Sexpr::Nil),
-            )
+            return (state, vec![], vec![err])
         }
     }
 }
@@ -35,10 +31,7 @@ pub fn repl(state: State, user_input: &str) -> (State, Sexpr<String>, Sexpr<Stri
 pub fn repl_js(state: JsValue, user_input: JsValue) -> Result<JsValue, JsValue> {
     let state: State = serde_wasm_bindgen::from_value(state)?;
     let user_input: String = serde_wasm_bindgen::from_value(user_input)?;
-    let (new_state, msgs, error_msgs) = repl(state, &user_input);
-    let msgs: Vec<String> = msgs.into();
-    let error_msgs: Vec<String> = error_msgs.into();
-    let result = (new_state, msgs, error_msgs);
+    let result = repl(state, &user_input);
     let result_js = serde_wasm_bindgen::to_value(&result)?;
     Ok(result_js)
 }

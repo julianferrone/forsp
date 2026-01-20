@@ -82,7 +82,7 @@ struct Frame {
 impl Frame {
     fn new() -> Frame {
         Frame {
-            rev_items: Sexpr::Nil,
+            rev_items: Sexpr::nil(),
             pending_special: None,
         }
     }
@@ -98,7 +98,7 @@ enum SpecialForm {
 fn quote(obj: Sexpr<Atom>) -> Sexpr<Atom> {
     Sexpr::cons(
         Sexpr::Single(Atom::name("quote")),
-        Sexpr::cons(obj, Sexpr::Nil),
+        Sexpr::cons(obj, Sexpr::nil()),
     )
 }
 
@@ -107,7 +107,7 @@ fn bind(obj: Sexpr<Atom>) -> Sexpr<Atom> {
         Sexpr::Single(Atom::name("quote")),
         Sexpr::cons(
             obj,
-            Sexpr::cons(Sexpr::Single(Atom::name("pop")), Sexpr::Nil),
+            Sexpr::cons(Sexpr::Single(Atom::name("pop")), Sexpr::nil()),
         ),
     )
 }
@@ -117,7 +117,7 @@ fn resolve(obj: Sexpr<Atom>) -> Sexpr<Atom> {
         Sexpr::Single(Atom::name("quote")),
         Sexpr::cons(
             obj,
-            Sexpr::cons(Sexpr::Single(Atom::name("push")), Sexpr::Nil),
+            Sexpr::cons(Sexpr::Single(Atom::name("push")), Sexpr::nil()),
         ),
     )
 }
@@ -339,7 +339,7 @@ mod tests {
             Sexpr::Single(Atom::Num(3)),
             Sexpr::cons(
                 Sexpr::Single(Atom::Num(2)),
-                Sexpr::cons(Sexpr::Single(Atom::Num(1)), Sexpr::Nil),
+                Sexpr::cons(Sexpr::Single(Atom::Num(1)), Sexpr::nil()),
             ),
         );
 
@@ -347,7 +347,7 @@ mod tests {
             Sexpr::Single(Atom::Num(1)),
             Sexpr::cons(
                 Sexpr::Single(Atom::Num(2)),
-                Sexpr::cons(Sexpr::Single(Atom::Num(3)), Sexpr::Nil),
+                Sexpr::cons(Sexpr::Single(Atom::Num(3)), Sexpr::nil()),
             ),
         );
 
@@ -364,7 +364,7 @@ mod tests {
             Sexpr::Single(Atom::Num(1)),
             Sexpr::cons(
                 Sexpr::Single(Atom::Num(2)),
-                Sexpr::cons(Sexpr::Single(Atom::Num(3)), Sexpr::Nil),
+                Sexpr::cons(Sexpr::Single(Atom::Num(3)), Sexpr::nil()),
             ),
         );
         assert_eq!(line, expected)
@@ -380,7 +380,7 @@ mod tests {
                 Sexpr::Single(Atom::Name("x".into())),
                 Sexpr::cons(
                     Sexpr::Single(Atom::Name("pop".into())),
-                    Sexpr::cons(Sexpr::Single(Atom::Name("x".into())), Sexpr::Nil),
+                    Sexpr::cons(Sexpr::Single(Atom::Name("x".into())), Sexpr::nil()),
                 ),
             ),
         );

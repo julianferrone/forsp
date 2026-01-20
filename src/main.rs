@@ -20,7 +20,7 @@ fn main() {
         let expr: sexpr::Sexpr<interpreter::Value> =
             parser::read(parser::scan(&user_input)).unwrap().into();
         match expr {
-            sexpr::Sexpr::Pair(_, _) => {
+            sexpr::Sexpr::List(_) => {
                 state = state.compute(expr);
             }
             _ => state = state.eval(expr.into()),

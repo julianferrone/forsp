@@ -42,17 +42,6 @@ impl<T> Sexpr<T> {
         Sexpr::List(vec![])
     }
 
-    pub fn cons(item: Sexpr<T>, sexpr: Sexpr<T>) -> Sexpr<T> {
-        match sexpr {
-            Sexpr::Single(cdr) => Sexpr::List(vec![Box::new(sexpr), Box::new(item)]),
-            Sexpr::List(sexprs) => {
-                let mut sexprs = sexprs.clone();
-                sexprs.push(Box::new(item));
-                Sexpr::List(sexprs)
-            }
-        }
-    }
-
     pub fn to_list(sexpr: Sexpr<T>) -> Sexpr<T> {
         match sexpr {
             Sexpr::Single(_) => Sexpr::List(vec![Box::new(sexpr)]),
@@ -74,23 +63,34 @@ impl<T> Sexpr<T> {
         };
         
         match first {
-            Sexpr::Single(_) => result = Sexpr::cons(first, result),
+            Sexpr::Single(_) => result.push(Box::new(first)),
             Sexpr::List(first_sexprs) => {
                 result.extend(first_sexprs);
             }
         };
-        result
+        Sexpr::List(result)
     }
 }
 
 impl<T: Clone> Sexpr<T> {
+    pub fn cons(item: Sexpr<T>, sexpr: Sexpr<T>) -> Sexpr<T> {
+        match sexpr {
+            Sexpr::Single(_) => Sexpr::List(vec![Box::new(sexpr), Box::new(item)]),
+            Sexpr::List(sexprs) => {
+                let mut sexprs = sexprs.clone();
+                sexprs.push(Box::new(item));
+                Sexpr::List(sexprs)
+            }
+        }
+    }
+
     pub fn car(sexpr: &Sexpr<T>) -> Result<Sexpr<T>, String> {
         match sexpr {
             Sexpr::List(items) => {
                 items
                     .split_first()
-                    .map(|(car, _cdr): (&T, &[T])| car.to_owned())
-                    .ok_or("car expects non-empty Sexpr::List")
+                    .map(|(car, _cdr)| *car.to_owned())
+                    .ok_or("car expects non-empty Sexpr::List".to_owned())
             },
             _ => Err("car expects Sexpr::List".into()),
         }
@@ -101,10 +101,29 @@ impl<T: Clone> Sexpr<T> {
             Sexpr::List(items) => {
                 items
                     .split_first()
-                    .map(|(_car, cdr): (&T, &[T])| cdr.to_owned())
-                    .ok_or("car expects non-empty Sexpr::List")
+                    .map(|(_car, cdr)| {
+                        let cdr: Vec<Box<Sexpr<T>>> = cdr.to_vec();
+                        Sexpr::List(cdr)
+                    })
+                    .ok_or("car expects non-empty Sexpr::List".to_owned())
             },
             _ => Err("car expects Sexpr::List".into()),
+        }
+    }
+
+    pub fn split(sexpr: &Sexpr<T>) -> Result<(Sexpr<T>, Sexpr<T>), String> {
+        match sexpr {
+            Sexpr::List(items) => {
+                items
+                    .split_first()
+                    .map(|(car, cdr)| {
+                        let car: Sexpr<T> = *car.to_owned();
+                        let cdr: Vec<Box<Sexpr<T>>> = cdr.to_vec();
+                        (car, Sexpr::List(cdr))
+                    })
+                    .ok_or("split expects non-empty Sexpr::List".to_owned())
+            },
+            _ => Err("split expects Sexpr::List".into())
         }
     }
 }
@@ -112,13 +131,16 @@ impl<T: Clone> Sexpr<T> {
 impl<T: Display> Display for Sexpr<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Sexpr::Single(item) => write!(f, "{}", item),
+            Sexpr::Single(item) => write!(f, "{item}"),
             Sexpr::List(items) => {
-                let items: String = items.iter().map(|item: Box<Sexpr<T>>| item.to_string()).join(" ");
-                write!(f, "({})", items);
+                let items: String = items.iter()
+                    .rev()
+                    .map(|item: &Box<Sexpr<T>>| item.to_string())
+                    .collect::<Vec<String>>()
+                    .join(" ");
+                write!(f, "({items})")
             }
         }
-        Ok(())
     }
 }
 
