@@ -4,6 +4,7 @@ pub mod env;
 pub mod interpreter;
 pub mod message;
 pub mod parser;
+pub mod primitive;
 pub mod sexpr;
 
 use crate::interpreter::{State, Value};

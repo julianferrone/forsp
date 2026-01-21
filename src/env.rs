@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
-use crate::sexpr::{Sexpr, Atom};
 use crate::interpreter::Value;
-use crate::interpreter::Primitive;
+use crate::primitive::Primitive;
+use crate::sexpr::{Sexpr, Atom};
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Env(HashMap<String, Value>);

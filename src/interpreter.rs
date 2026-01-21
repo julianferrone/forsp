@@ -3,6 +3,7 @@ use std::fmt::Display;
 
 use crate::env::Env;
 use crate::message::{Message, MessageType};
+use crate::primitive::{Primitive, ApplyPrimitive};
 use crate::sexpr::{Atom, Sexpr};
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -267,18 +268,6 @@ impl State {
 
     //////////                  Eval                  //////////
 
-    fn apply_primitive(self, primitive: Primitive) -> State {
-        let env = self.env.clone();
-        let func = get_primitive_function(primitive);
-        match func(self.clone(), env) {
-            Ok(state) => state,
-            Err(err) => {
-                let state = self.eprint(format!("applying primitive: {err}"));
-                state
-            }
-        }
-    }
-
     pub fn compute(self, program: Sexpr<Value>) -> State {
         match program {
             Sexpr::Single(obj) => return self.eval(obj),
@@ -351,28 +340,23 @@ impl State {
     }
 }
 
+impl ApplyPrimitive for State {
+    fn apply_primitive(self, primitive: Primitive) -> State {
+        let env = self.env.clone();
+        let func = get_primitive_function(primitive);
+        match func(self.clone(), env) {
+            Ok(state) => state,
+            Err(err) => {
+                let state = self.eprint(format!("applying primitive: {err}"));
+                state
+            }
+        }
+    }
+}
+
 ////////////////////////////////////////////////////////////
 //                   Primitive Functions                  //
 ////////////////////////////////////////////////////////////
-
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub enum Primitive {
-    Push,
-    Pop,
-    Equals,
-    Cons,
-    Car,
-    Cdr,
-    Cswap,
-    Print,
-    Help,
-    Stack,
-    Env,
-    Add,
-    Sub,
-    Mul,
-    Div,
-}
 
 fn get_primitive_function(primitive: Primitive) -> fn(State, Env) -> Result<State, String> {
     match primitive {
