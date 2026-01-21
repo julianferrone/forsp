@@ -7,6 +7,28 @@ use crate::sexpr::{Sexpr, Atom};
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Env<T>(pub HashMap<String, T>);
 
+impl<T> Env<T> {
+    pub fn empty() -> Env<T> {
+        Env(HashMap::new())
+    }
+
+    pub fn find(self: &Env<T>, key: &str) -> Result<&T, String> {
+        self.0
+            .get(key)
+            .ok_or("Could not find value for key".to_owned())
+    }
+
+    pub fn define_mut(self: &mut Env<T>, key: impl Into<String>, value: T) {
+        self.0.insert(key.into(), value);
+    }
+
+    pub fn define(self: Env<T>, key: impl Into<String>, value: T) -> Env<T> {
+        let mut env = self;
+        env.define_mut(key, value);
+        env
+    }
+}
+
 impl<T: std::convert::From<Primitive>> Env<T> {
     pub fn new() -> Env<T> {
         let mut env = Env(HashMap::new());
@@ -27,22 +49,6 @@ impl<T: std::convert::From<Primitive>> Env<T> {
         env.define_prim_mut("/", Primitive::Div);
         env.define_prim_mut("help", Primitive::Help);
         
-        env
-    }
-
-    pub fn find(self: &Env<T>, key: &str) -> Result<&T, String> {
-        self.0
-            .get(key)
-            .ok_or("Could not find value for key".to_owned())
-    }
-
-    pub fn define_mut(self: &mut Env<T>, key: impl Into<String>, value: T) {
-        self.0.insert(key.into(), value);
-    }
-
-    pub fn define(self: Env<T>, key: impl Into<String>, value: T) -> Env<T> {
-        let mut env = self;
-        env.define_mut(key, value);
         env
     }
 
