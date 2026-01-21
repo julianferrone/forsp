@@ -3,9 +3,11 @@ use wasm_bindgen::prelude::*;
 pub mod env;
 pub mod interpreter;
 pub mod message;
+pub mod nonempty;
 pub mod parser;
 pub mod primitive;
 pub mod sexpr;
+pub mod vm;
 
 use crate::interpreter::{State, Value};
 use crate::message::{MessageType, Message};
