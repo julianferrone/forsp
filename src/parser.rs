@@ -208,9 +208,9 @@ pub fn read(mut tokens: VecDeque<Token>) -> Result<Sexpr<Atom>, String> {
     Ok(result)
 }
 
-pub fn parse(atoms: Sexpr<Atom>) -> Result<Vec<Instruction>, String> {
-    todo!();
-}
+// pub fn parse(atoms: Sexpr<Atom>) -> Result<Vec<Instruction>, String> {
+//     todo!();
+// }
 
 ////////////////////////////////////////////////////////////
 //                          Tests                         //
