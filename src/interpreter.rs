@@ -16,7 +16,7 @@ pub enum Instruction {
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Closure {
     instructions: Box<Value>,
-    env: Env
+    env: Env<Value>
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -35,11 +35,11 @@ impl Value {
         }
     }
 
-    pub fn make_name(name: &str) -> Value {
+    pub fn make_name(name: impl Into<String>) -> Value {
         Atom::Name(name.into()).into()
     }
 
-    fn make_closure(body: Value, env: Env) -> Value {
+    fn make_closure(body: Value, env: Env<Value>) -> Value {
         Value::Closure(Closure {
             instructions: Box::new(body),
             env: env
@@ -78,6 +78,12 @@ impl From<Atom> for Value {
     }
 }
 
+impl From<Primitive> for Value {
+    fn from(value: Primitive) -> Self {
+        Value::Primitive(value)
+    }
+}
+
 impl From<Sexpr<Value>> for Value {
     fn from(value: Sexpr<Value>) -> Self {
         match value {
@@ -113,6 +119,20 @@ impl From<Sexpr<Atom>> for Sexpr<Value> {
                 Sexpr::List(values)
             }
         }
+    }
+}
+
+impl From<Env<Value>> for Value {
+    fn from(value: Env<Value>) -> Value {
+        let sexprs: Vec<Box<Sexpr<Value>>> = value.0.into_iter()
+            .map(|(key, value): (String, Value)| {
+                let key = Box::new(Sexpr::Single(Value::make_name(key)));
+                let value = Box::new(Sexpr::Single(value.clone()));
+                let pair = Sexpr::List(vec![key, value]);
+                Box::new(pair)
+            })
+            .collect();
+        Value::Sexpr(Box::new(Sexpr::List(sexprs)))
     }
 }
 
@@ -159,18 +179,15 @@ impl std::fmt::Display for Value {
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct State {
     pub stack: Vec<Value>,
-    pub env: Env,
+    pub env: Env<Value>,
     pub messages: Vec<Message>,
 }
 
 impl Display for State {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f, 
-            "STATE<{} {}>", 
-            Sexpr::from_vec(self.stack.clone()), 
-            &self.env.to_value()
-        )
+        let stack: Sexpr<Value> = Sexpr::from_vec(self.stack.clone());
+        let env: Value = self.env.clone().into();
+        write!(f, "STATE<{stack} {env}>")
     }
 }
 
@@ -262,7 +279,7 @@ impl State {
 
     //////////               Environment              //////////
 
-    fn with_env(self, env: Env) -> State {
+    fn with_env(self, env: Env<Value>) -> State {
         State { env: env, ..self }
     }
 
@@ -307,8 +324,10 @@ impl State {
     pub fn eval(self, expr: Value) -> State {
         match expr {
             Value::Atom(ref atom) => match atom {
-                Atom::Name(_) => {
-                    let value = self.env.find(&expr).clone();
+                Atom::Name(name) => {
+                    let value: Result<Value, String> = self.env
+                        .find(&name)
+                        .cloned();
 
                     match value {
                         Ok(Value::Primitive(func)) => self.apply_primitive(func),
@@ -319,7 +338,8 @@ impl State {
                         })) => {
                             let saved_env = self.env.clone();
 
-                            let state = self.with_env(closure_env).compute((*body).into());
+                            let state = self.with_env(closure_env)
+                                .compute((*body).into());
 
                             state.with_env(saved_env)
                         }
@@ -358,7 +378,7 @@ impl ApplyPrimitive for State {
 //                   Primitive Functions                  //
 ////////////////////////////////////////////////////////////
 
-fn get_primitive_function(primitive: Primitive) -> fn(State, Env) -> Result<State, String> {
+fn get_primitive_function(primitive: Primitive) -> fn(State, Env<Value>) -> Result<State, String> {
     match primitive {
         Primitive::Push => prim_push,
         Primitive::Pop => prim_pop,
@@ -380,13 +400,17 @@ fn get_primitive_function(primitive: Primitive) -> fn(State, Env) -> Result<Stat
 
 //////////             Core Primitives            //////////
 
-fn prim_push(state: State, env: Env) -> Result<State, String> {
+fn prim_push(state: State, env: Env<Value>) -> Result<State, String> {
     let (key, state) = state.pop()?;
-    let value = &env.find(&key)?;
-    Ok(state.push(value.clone()))
+    if let Value::Atom(Atom::Name(name)) = key {
+        let value = env.find(&name)?;
+        Ok(state.push(value.clone()))
+    } else {
+        Err("push expects the top of the stack to be a Value::Atom(Atom::Name)".into())
+    }
 }
 
-fn prim_pop(state: State, env: Env) -> Result<State, String> {
+fn prim_pop(state: State, env: Env<Value>) -> Result<State, String> {
     let ((key, value), state) = state.pop2()?;
     if let Value::Atom(Atom::Name(name)) = key {
         let env = env.define(name, value);
@@ -397,7 +421,7 @@ fn prim_pop(state: State, env: Env) -> Result<State, String> {
     }
 }
 
-fn prim_eq(state: State, _env: Env) -> Result<State, String> {
+fn prim_eq(state: State, _env: Env<Value>) -> Result<State, String> {
     let ((a, b), state) = state.pop2()?;
     let result = if a == b {
         Value::make_name("t")
@@ -407,25 +431,25 @@ fn prim_eq(state: State, _env: Env) -> Result<State, String> {
     Ok(state.push(result))
 }
 
-fn prim_cons(state: State, _env: Env) -> Result<State, String> {
+fn prim_cons(state: State, _env: Env<Value>) -> Result<State, String> {
     let ((a, b), state) = state.pop2()?;
     let pair = Value::cons(a, b);
     Ok(state.push(pair))
 }
 
-fn prim_car(state: State, _env: Env) -> Result<State, String> {
+fn prim_car(state: State, _env: Env<Value>) -> Result<State, String> {
     let (x, state) = state.pop()?;
     let car = Value::car(x)?;
     Ok(state.push(car))
 }
 
-fn prim_cdr(state: State, _env: Env) -> Result<State, String> {
+fn prim_cdr(state: State, _env: Env<Value>) -> Result<State, String> {
     let (x, state) = state.pop()?;
     let cdr = Value::cdr(x)?;
     Ok(state.push(cdr))
 }
 
-fn prim_cswap(state: State, _env: Env) -> Result<State, String> {
+fn prim_cswap(state: State, _env: Env<Value>) -> Result<State, String> {
     let (top, state) = state.pop()?;
     let new_state = if top == Value::make_name("t") {
         let ((a, b), state) = state.pop2()?;
@@ -436,7 +460,7 @@ fn prim_cswap(state: State, _env: Env) -> Result<State, String> {
     Ok(new_state)
 }
 
-fn prim_print(state: State, _env: Env) -> Result<State, String> {
+fn prim_print(state: State, _env: Env<Value>) -> Result<State, String> {
     let (top, state) = state.pop()?;
     let mut messages = state.messages;
     messages.push(Message {
@@ -452,7 +476,7 @@ fn prim_print(state: State, _env: Env) -> Result<State, String> {
 
 const HELP: &str = include_str!("help.txt");
 
-fn prim_help(state: State, _env: Env) -> Result<State, String> {
+fn prim_help(state: State, _env: Env<Value>) -> Result<State, String> {
     let help_messages = HELP
         .lines()
         .map(|line| {
@@ -473,13 +497,13 @@ fn prim_help(state: State, _env: Env) -> Result<State, String> {
 
 //////////            Extra Primitives            //////////.
 
-fn prim_stack(state: State, _env: Env) -> Result<State, String> {
+fn prim_stack(state: State, _env: Env<Value>) -> Result<State, String> {
     let stack = Sexpr::from_vec(state.stack.clone()).into();
     Ok(state.push(stack))
 }
 
-fn prim_env(state: State, env: Env) -> Result<State, String> {
-  Ok(state.push(env.to_value()))
+fn prim_env(state: State, env: Env<Value>) -> Result<State, String> {
+  Ok(state.push(env.into()))
 }
 
 fn binary_num_op(a: Value, b: Value, func: fn(usize, usize) -> usize) -> Result<Value, String> {
@@ -494,25 +518,25 @@ fn binary_num_op(a: Value, b: Value, func: fn(usize, usize) -> usize) -> Result<
     }
 }
 
-fn prim_add(state: State, _env: Env) -> Result<State, String> {
+fn prim_add(state: State, _env: Env<Value>) -> Result<State, String> {
     let ((a, b), state) = state.pop2()?;
     let result = binary_num_op(a, b, |a, b| a + b)?;
     Ok(state.push(result))
 }
 
-fn prim_sub(state: State, _env: Env) -> Result<State, String> {
+fn prim_sub(state: State, _env: Env<Value>) -> Result<State, String> {
     let ((a, b), state) = state.pop2()?;
     let result = binary_num_op(a, b, |a, b| b - a)?;
     Ok(state.push(result))
 }
 
-fn prim_mul(state: State, _env: Env) -> Result<State, String> {
+fn prim_mul(state: State, _env: Env<Value>) -> Result<State, String> {
     let ((a, b), state) = state.pop2()?;
     let result = binary_num_op(a, b, |a, b| a * b)?;
     Ok(state.push(result))
 }
 
-fn prim_div(state: State, _env: Env) -> Result<State, String> {
+fn prim_div(state: State, _env: Env<Value>) -> Result<State, String> {
     let ((a, b), state) = state.pop2()?;
     let result = binary_num_op(a, b, |a, b| b / a)?;
     Ok(state.push(result))

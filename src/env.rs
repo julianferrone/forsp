@@ -1,16 +1,15 @@
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
-use crate::interpreter::Value;
 use crate::primitive::Primitive;
 use crate::sexpr::{Sexpr, Atom};
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub struct Env(HashMap<String, Value>);
+pub struct Env<T>(pub HashMap<String, T>);
 
-impl Env {
-    pub fn new() -> Env {
-        let mut env: Env = Env(HashMap::new());
+impl<T: std::convert::From<Primitive>> Env<T> {
+    pub fn new() -> Env<T> {
+        let mut env = Env(HashMap::new());
         
         env.define_prim_mut("push", Primitive::Push);
         env.define_prim_mut("pop", Primitive::Pop);
@@ -31,49 +30,36 @@ impl Env {
         env
     }
 
-    pub fn find(self: &Env, key: &Value) -> Result<Value, String> {
-        match key {
-            Value::Atom(Atom::Name(name)) => {
-                self.0
-                    .get(name)
-                    .ok_or("Could not find value for key".to_owned())
-                    .cloned()
-            },
-            _other => Err("Expected Key to be Value::Atom(Atom::Name)".into())
-        }
+    pub fn find(self: &Env<T>, key: &str) -> Result<&T, String> {
+        self.0
+            .get(key)
+            .ok_or("Could not find value for key".to_owned())
     }
 
-    pub fn define_mut(self: &mut Env, key: impl Into<String>, value: Value) {
+    pub fn define_mut(self: &mut Env<T>, key: impl Into<String>, value: T) {
         self.0.insert(key.into(), value);
     }
 
-    pub fn define(self: Env, key: impl Into<String>, value: Value) -> Env {
+    pub fn define(self: Env<T>, key: impl Into<String>, value: T) -> Env<T> {
         let mut env = self;
         env.define_mut(key, value);
         env
     }
 
     pub fn define_prim_mut(
-        self: &mut Env, 
+        self: &mut Env<T>, 
         name: impl Into<String>, 
-        prim: Primitive
+        prim: impl Into<T> 
     ) {
-        self.define_mut(name.into(), Value::Primitive(prim))
+        self.define_mut(name.into(), prim.into())
     }
 
-    pub fn define_prim(self: Env, name: impl Into<String>, prim: Primitive) -> Env {
-        self.define(name.into(), Value::Primitive(prim))
-    }
-
-    pub fn to_value(self: &Env) -> Value {
-        let sexprs: Vec<Box<Sexpr<Value>>> = self.0.iter()
-            .map(|(key, value)| {
-                let key = Box::new(Sexpr::Single(Value::make_name(key)));
-                let value = Box::new(Sexpr::Single(value.clone()));
-                let pair = Sexpr::List(vec![key, value]);
-                Box::new(pair)
-            })
-            .collect();
-        Value::Sexpr(Box::new(Sexpr::List(sexprs)))
+    pub fn define_prim(
+        self: Env<T>, 
+        name: impl Into<String>, 
+        prim: impl Into<T>
+    ) -> Env<T> {
+        self.define(name.into(), prim.into())
     }
 }
+
