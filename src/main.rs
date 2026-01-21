@@ -1,9 +1,8 @@
 use std::io::prelude::*;
 
-mod interpreter;
-mod nonempty;
-mod parser;
-mod sexpr;
+use forsp::interpreter::{State, Value};
+use forsp::parser::{read, scan};
+use forsp::sexpr::Sexpr;
 
 fn get_user_input(prompt: &str) -> String {
     let mut buf = String::new();
@@ -15,13 +14,12 @@ fn get_user_input(prompt: &str) -> String {
 }
 
 fn main() {
-    let mut state = interpreter::State::new();
+    let mut state = State::new();
     loop {
         let user_input = get_user_input("forsp> ");
-        let expr: sexpr::Sexpr<interpreter::Value> =
-            parser::read(parser::scan(&user_input)).unwrap().into();
+        let expr: Sexpr<Value> = read(scan(&user_input)).unwrap().into();
         match expr {
-            sexpr::Sexpr::List(_) => {
+            Sexpr::List(_) => {
                 state = state.compute(expr);
             }
             _ => state = state.eval(expr.into()),
