@@ -22,11 +22,23 @@ impl<T> NonEmpty<T> {
     fn pop(&mut self) -> Option<T> {
         self.rest.pop()
     }
+
+    fn last_mut(&mut self) -> &mut T {
+        self.rest
+            .last_mut()
+            .unwrap_or_else(|| &mut self.first)
+    }
+
+    fn pop_or_first(&mut self) -> T {
+        self.pop().unwrap_or_else(|| self.first.clone())
+    }
 }
 
 impl<T: Clone> NonEmpty<T> {
-    fn pop_or_first(&mut self) -> T {
-        self.pop().unwrap_or_else(|| self.first.clone())
+    fn last(&self) -> &T {
+        self.rest
+            .last()
+            .unwrap_or_else(|| &self.first)
     }
 }
 
