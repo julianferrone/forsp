@@ -7,9 +7,9 @@ use crate::sexpr::{Atom, Sexpr};
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum Instruction {
+    AddValue(Value),
     Call(String),
     Primitive(Primitive),
-    AddValue(Value)
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -434,7 +434,15 @@ impl State {
     pub fn eval_instruction(self, instruction: Instruction) -> State {
         match instruction {
             Instruction::AddValue(value) => self.push(value),
-            Instruction::Call(func_name) => todo!(),
+            Instruction::Call(name) => {
+                let value: Option<Value> = self.env.get(&name).cloned();
+                match value {
+                    Some(Value::Closure(Closure)) => todo!(),
+                    Some(Value::Primitive(primitive)) => self.apply_primitive(primitive),
+                    Some(value) => self.push(value.clone()),
+                    None => self.eprint(format!("Could not find {name} in environment"))
+                }
+            },
             Instruction::Primitive(primitive) => self.apply_primitive(primitive),
         }
     }
@@ -697,5 +705,19 @@ mod tests {
             .pop()
             .expect("Should be Ok");
         assert_eq!(result, six)
+    }
+
+    #[test]
+    fn run_call_instruction() {
+        let two = Value::Atom(Atom::Num(2));
+        let three = Value::Atom(Atom::Num(3));
+        let five = Value::Atom(Atom::Num(5));
+        let (result, _state) = State::new()
+            .eval_instruction(Instruction::AddValue(two))
+            .eval_instruction(Instruction::AddValue(three))
+            .eval_instruction(Instruction::Call("+".to_owned()))
+            .pop()
+            .expect("Should be Ok");
+        assert_eq!(result, five)
     }
 }
