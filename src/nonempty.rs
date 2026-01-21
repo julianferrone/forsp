@@ -8,22 +8,22 @@ pub struct NonEmpty<T> {
 }
 
 impl<T> NonEmpty<T> {
-    fn singleton(first: T) -> NonEmpty<T> {
+    pub fn singleton(first: T) -> NonEmpty<T> {
         NonEmpty {
             first: first,
             rest: vec![]
         }
     }
 
-    fn push(&mut self, value: T) {
+    pub fn push(&mut self, value: T) {
         self.rest.push(value)
     }
 
-    fn pop(&mut self) -> Option<T> {
+    pub fn pop(&mut self) -> Option<T> {
         self.rest.pop()
     }
 
-    fn last_mut(&mut self) -> &mut T {
+    pub fn last_mut(&mut self) -> &mut T {
         self.rest
             .last_mut()
             .unwrap_or_else(|| &mut self.first)
@@ -31,13 +31,13 @@ impl<T> NonEmpty<T> {
 }
 
 impl<T: Clone> NonEmpty<T> {
-    fn last(&self) -> &T {
+    pub fn last(&self) -> &T {
         self.rest
             .last()
             .unwrap_or_else(|| &self.first)
     }
     
-    fn pop_or_first(&mut self) -> T {
+    pub fn pop_or_first(&mut self) -> T {
         self.pop().unwrap_or_else(|| self.first.clone())
     }
 }
