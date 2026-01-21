@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 use std::collections::HashMap;
 
-use crate::sexpr;
+use crate::env::Env;
 use crate::sexpr::{Atom, Sexpr};
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -34,7 +34,7 @@ impl Value {
         }
     }
 
-    fn make_name(name: &str) -> Value {
+    pub fn make_name(name: &str) -> Value {
         Atom::Name(name.into()).into()
     }
 
@@ -155,65 +155,6 @@ impl std::fmt::Display for Value {
 
 //////////               Environment              //////////
 
-type Env = HashMap<String, Value>;
-
-
-fn default_env() -> Env {
-    let env: Env = HashMap::new();
-    let env = env_define_prim(env, "push", Primitive::Push);
-    let env = env_define_prim(env, "pop", Primitive::Pop);
-    let env = env_define_prim(env, "cons", Primitive::Cons);
-    let env = env_define_prim(env, "car", Primitive::Car);
-    let env = env_define_prim(env, "cdr", Primitive::Cdr);
-    let env = env_define_prim(env, "eq", Primitive::Equals);
-    let env = env_define_prim(env, "cswap", Primitive::Cswap);
-    let env = env_define_prim(env, "print", Primitive::Print);
-
-    // Extra primitives
-    let env = env_define_prim(env, "stack", Primitive::Stack);
-    let env = env_define_prim(env, "env", Primitive::Env);
-    let env = env_define_prim(env, "+", Primitive::Add);
-    let env = env_define_prim(env, "-", Primitive::Sub);
-    let env = env_define_prim(env, "*", Primitive::Mul);
-    let env = env_define_prim(env, "/", Primitive::Div);
-    let env = env_define_prim(env, "help", Primitive::Help);
-    env
-}
-
-fn env_find(env: &Env, key: &Value) -> Result<Value, String> {
-    match key {
-        Value::Atom(Atom::Name(name)) => {
-            env.get(name)
-                .ok_or("Could not find value for key".to_owned())
-                .cloned()
-        },
-        _other => Err("Expected Key to be Value::Atom(Atom::Name)".into())
-    }
-}
-
-fn env_define(env: Env, key: impl Into<String>, value: Value) -> Env {
-    let mut env = env;
-    env.insert(key.into(), value);
-    env
-    // Value::cons(Value::cons(key, value), env)
-}
-
-fn env_define_prim(env: Env, name: impl Into<String>, prim: Primitive) -> Env {
-    env_define(env, name.into(), Value::Primitive(prim))
-}
-
-fn env_to_value(env: &Env) -> Value {
-    let sexprs: Vec<Box<Sexpr<Value>>> = env.iter()
-        .map(|(key, value)| {
-            let key = Box::new(Sexpr::Single(Value::make_name(key)));
-            let value = Box::new(Sexpr::Single(value.clone()));
-            let pair = Sexpr::List(vec![key, value]);
-            Box::new(pair)
-        })
-        .collect();
-    Value::Sexpr(Box::new(Sexpr::List(sexprs)))
-}
-
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum MessageType {
     Error,
@@ -249,7 +190,7 @@ impl Display for State {
             f, 
             "STATE<{} {}>", 
             Sexpr::from_vec(self.stack.clone()), 
-            env_to_value(&self.env)
+            &self.env.to_value()
         )
     }
 }
@@ -259,7 +200,7 @@ impl State {
         // Core primitives
         State {
             stack: vec![],
-            env: default_env(),
+            env: Env::new(),
             messages: vec![],
         }
     }
@@ -400,7 +341,7 @@ impl State {
         match expr {
             Value::Atom(ref atom) => match atom {
                 Atom::Name(_) => {
-                    let value = env_find(&self.env, &expr);
+                    let value = self.env.find(&expr).clone();
 
                     match value {
                         Ok(Value::Primitive(func)) => self.apply_primitive(func),
@@ -428,22 +369,6 @@ impl State {
             }
 
             other => self.push(other),
-        }
-    }
-
-    pub fn eval_instruction(self, instruction: Instruction) -> State {
-        match instruction {
-            Instruction::AddValue(value) => self.push(value),
-            Instruction::Call(name) => {
-                let value: Option<Value> = self.env.get(&name).cloned();
-                match value {
-                    Some(Value::Closure(Closure)) => todo!(),
-                    Some(Value::Primitive(primitive)) => self.apply_primitive(primitive),
-                    Some(value) => self.push(value.clone()),
-                    None => self.eprint(format!("Could not find {name} in environment"))
-                }
-            },
-            Instruction::Primitive(primitive) => self.apply_primitive(primitive),
         }
     }
 }
@@ -495,14 +420,14 @@ fn get_primitive_function(primitive: Primitive) -> fn(State, Env) -> Result<Stat
 
 fn prim_push(state: State, env: Env) -> Result<State, String> {
     let (key, state) = state.pop()?;
-    let value = env_find(&env, &key)?;
-    Ok(state.push(value))
+    let value = &env.find(&key)?;
+    Ok(state.push(value.clone()))
 }
 
 fn prim_pop(state: State, env: Env) -> Result<State, String> {
     let ((key, value), state) = state.pop2()?;
     if let Value::Atom(Atom::Name(name)) = key {
-        let env = env_define(env, name, value);
+        let env = env.define(name, value);
         Ok(State {env: env, ..state })
     } else {
         let msg = format!("prim_pop expects the top of the stack to be Value::Atom(Atom::Name), got {key:?}");
@@ -592,7 +517,7 @@ fn prim_stack(state: State, _env: Env) -> Result<State, String> {
 }
 
 fn prim_env(state: State, env: Env) -> Result<State, String> {
-    Ok(state.push(env_to_value(&env)))
+  Ok(state.push(env.to_value()))
 }
 
 fn binary_num_op(a: Value, b: Value, func: fn(usize, usize) -> usize) -> Result<Value, String> {
@@ -684,40 +609,4 @@ mod tests {
         assert_eq!(result, expected)
     }
 
-    #[test]
-    fn run_add_value_instruction() {
-        let expected = Value::Atom(Atom::Num(1));
-        let instruction = Instruction::AddValue(expected.clone());
-        let state = State::new().eval_instruction(instruction);
-        let (result, _state) = state.pop().expect("Should be Ok");
-        assert_eq!(result, expected)
-    }
-
-    #[test]
-    fn run_primitive_instruction_mul() {
-        let two = Value::Atom(Atom::Num(2));
-        let three = Value::Atom(Atom::Num(3));
-        let six = Value::Atom(Atom::Num(6));
-        let (result, _state) = State::new()
-            .eval_instruction(Instruction::AddValue(two))
-            .eval_instruction(Instruction::AddValue(three))
-            .eval_instruction(Instruction::Primitive(Primitive::Mul))
-            .pop()
-            .expect("Should be Ok");
-        assert_eq!(result, six)
-    }
-
-    #[test]
-    fn run_call_instruction() {
-        let two = Value::Atom(Atom::Num(2));
-        let three = Value::Atom(Atom::Num(3));
-        let five = Value::Atom(Atom::Num(5));
-        let (result, _state) = State::new()
-            .eval_instruction(Instruction::AddValue(two))
-            .eval_instruction(Instruction::AddValue(three))
-            .eval_instruction(Instruction::Call("+".to_owned()))
-            .pop()
-            .expect("Should be Ok");
-        assert_eq!(result, five)
-    }
 }
