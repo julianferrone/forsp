@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
-use std::collections::HashMap;
 
 use crate::env::Env;
+use crate::message::{Message, MessageType};
 use crate::sexpr::{Atom, Sexpr};
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -154,28 +154,6 @@ impl std::fmt::Display for Value {
 ////////////////////////////////////////////////////////////
 
 //////////               Environment              //////////
-
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub enum MessageType {
-    Error,
-    Output
-}
-
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub struct Message {
-    pub typ: MessageType,
-    pub msg: String
-}
-
-impl Display for Message {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let typ = match self.typ {
-            MessageType::Error => "ERR: ",
-            MessageType::Output => "",
-        };
-        write!(f, "{}{}", typ, self.msg)
-    }
-}
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct State {

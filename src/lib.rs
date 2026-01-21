@@ -2,10 +2,12 @@ use wasm_bindgen::prelude::*;
 
 pub mod env;
 pub mod interpreter;
+pub mod message;
 pub mod parser;
 pub mod sexpr;
 
-use crate::interpreter::{MessageType, Message, State, Value};
+use crate::interpreter::{State, Value};
+use crate::message::{MessageType, Message};
 use crate::parser::{read, scan};
 use crate::sexpr::Sexpr;
 
