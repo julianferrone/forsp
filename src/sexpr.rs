@@ -151,6 +151,12 @@ impl<T: Display> Display for Sexpr<T> {
     }
 }
 
+impl<T> From<Vec<T>> for Sexpr<T> {
+    fn from(value: Vec<T>) -> Self {
+        Sexpr::from_vec(value)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::sexpr::Sexpr;
