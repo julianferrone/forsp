@@ -28,10 +28,6 @@ impl<T> NonEmpty<T> {
             .last_mut()
             .unwrap_or_else(|| &mut self.first)
     }
-
-    fn pop_or_first(&mut self) -> T {
-        self.pop().unwrap_or_else(|| self.first.clone())
-    }
 }
 
 impl<T: Clone> NonEmpty<T> {
@@ -39,6 +35,10 @@ impl<T: Clone> NonEmpty<T> {
         self.rest
             .last()
             .unwrap_or_else(|| &self.first)
+    }
+    
+    fn pop_or_first(&mut self) -> T {
+        self.pop().unwrap_or_else(|| self.first.clone())
     }
 }
 
