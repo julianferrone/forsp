@@ -1,3 +1,4 @@
+use crate::primitive::try_parse;
 use crate::sexpr::{Atom, Sexpr};
 use crate::vm;
 use std::collections::VecDeque;
@@ -243,7 +244,14 @@ pub fn parse(mut atoms: Sexpr<Atom>) -> Result<VecDeque<vm::Instruction>, String
                     do_quote = true;
                     None
                 }
-                Sexpr::Single(Atom::Name(name)) => Some(vm::Instruction::Call(name)),
+                Sexpr::Single(Atom::Name(name)) => {
+                    let instruction = try_parse(&name)
+                        .map_or_else(
+                            || vm::Instruction::Call(name),
+                            |prim| vm::Instruction::ApplyPrimitive(prim)
+                        );
+                    Some(instruction)
+                }
                 Sexpr::Single(num) => Some(vm::Instruction::PushValue(vm::Value::Atom(num))),
                 mut list => {
                     let instructions = parse(list)?;

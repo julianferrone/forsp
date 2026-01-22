@@ -48,3 +48,24 @@ impl std::fmt::Display for Primitive {
         }
     }
 }
+
+pub fn try_parse(s: &str) -> Option<Primitive> {
+    match s {
+            "push" => Some(Primitive::Push),
+            "pop" => Some(Primitive::Pop),
+            "cons" => Some(Primitive::Cons),
+            "car" => Some(Primitive::Car),
+            "cdr" => Some(Primitive::Cdr),
+            "eq" => Some(Primitive::Equals),
+            "cswap" => Some(Primitive::Cswap),
+            "print" => Some(Primitive::Print),
+            "stack" => Some(Primitive::Stack),
+            "env" => Some(Primitive::Env),
+            "+" => Some(Primitive::Add),
+            "-" => Some(Primitive::Sub),
+            "*" => Some(Primitive::Mul),
+            "/" => Some(Primitive::Div),
+            "help" => Some(Primitive::Help),
+            _ => None
+    }
+}
