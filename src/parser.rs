@@ -1,5 +1,5 @@
-use crate::interpreter::Instruction;
 use crate::sexpr::{Atom, Sexpr};
+use crate::vm;
 use std::collections::VecDeque;
 
 ////////////////////////////////////////////////////////////
@@ -208,9 +208,56 @@ pub fn read(mut tokens: VecDeque<Token>) -> Result<Sexpr<Atom>, String> {
     Ok(result)
 }
 
-// pub fn parse(atoms: Sexpr<Atom>) -> Result<Vec<Instruction>, String> {
-//     todo!();
-// }
+////////////////////////////////////////////////////////////
+//                          Tests                         //
+////////////////////////////////////////////////////////////
+
+fn quoted(value: Sexpr<Atom>) -> vm::Value {
+    match value {
+        Sexpr::Single(atom) => vm::Value::Atom(atom),
+        Sexpr::List(atoms) => {
+            let values = atoms
+                .into_iter()
+                .map(|boxed: Box<Sexpr<Atom>>| Box::new(Sexpr::Single(quoted(*boxed))))
+                .collect::<Vec<Box<Sexpr<vm::Value>>>>()
+                .into();
+            vm::Value::Sexpr(Box::new(Sexpr::List(values)))
+        }
+    }
+}
+
+pub fn parse(mut atoms: Sexpr<Atom>) -> Result<VecDeque<vm::Instruction>, String> {
+    assert!(matches!(atoms, Sexpr::List(_)));
+    let mut car = Sexpr::car_mut(&mut atoms);
+    let mut do_quote = false;
+    let mut instructions = VecDeque::new();
+    while let Ok(atom) = car {
+        if do_quote {
+            let value = quoted(atom);
+            let instruction = vm::Instruction::PushValue(value);
+            instructions.push_back(instruction);
+            do_quote = false;
+        } else {
+            let instruction = match atom {
+                Sexpr::Single(Atom::Name(name)) if name == "quote" => {
+                    do_quote = true;
+                    None
+                }
+                Sexpr::Single(Atom::Name(name)) => Some(vm::Instruction::Call(name)),
+                Sexpr::Single(num) => Some(vm::Instruction::PushValue(vm::Value::Atom(num))),
+                mut list => {
+                    let instructions = parse(list)?;
+                    Some(vm::Instruction::MakeClosure(instructions))
+                }
+            };
+            if let Some(instruction) = instruction {
+                instructions.push_back(instruction);
+            };
+        }
+        car = Sexpr::car_mut(&mut atoms);
+    }
+    Ok(instructions)
+}
 
 ////////////////////////////////////////////////////////////
 //                          Tests                         //
@@ -221,6 +268,8 @@ mod tests {
     use std::vec;
 
     use super::*;
+    use crate::primitive::Primitive;
+    use crate::vm;
 
     //////////              Test Scanner              //////////
 
@@ -472,5 +521,47 @@ mod tests {
     #[test]
     fn bind_list() {
         check_display("^(1 2 3)", "(quote (1 2 3) push)");
+    }
+
+
+    //////////               Test Parser              //////////
+
+    fn parse_str(s: &str) -> VecDeque<vm::Instruction> {
+        let scanned = scan(s);
+        let readed = read(scanned).expect("Test input should read");
+        let parsed = parse(readed).expect("Test input should be parseable");
+        parsed
+    }
+
+    #[test]
+    fn parse_special_form_quote() {
+        let input = "'foo";
+        let parsed = parse_str(input);
+        let expected = VecDeque::from([
+            vm::Instruction::PushValue(vm::Value::Atom(Atom::Name("foo".into())))
+        ]);
+        assert_eq!(parsed, expected);
+    }
+
+    #[test]
+    fn parse_special_form_bind() {
+        let input = "$foo";
+        let parsed = parse_str(input);
+        let expected = VecDeque::from([
+            vm::Instruction::PushValue(vm::Value::Atom(Atom::Name("foo".into()))),
+            vm::Instruction::ApplyPrimitive(Primitive::Pop),
+        ]);
+        assert_eq!(parsed, expected);
+    }
+
+    #[test]
+    fn parse_special_form_resolve() {
+        let input = "^foo";
+        let parsed = parse_str(input);
+        let expected = VecDeque::from([
+            vm::Instruction::PushValue(vm::Value::Atom(Atom::Name("foo".into()))),
+            vm::Instruction::ApplyPrimitive(Primitive::Push),
+        ]);
+        assert_eq!(parsed, expected);
     }
 }
