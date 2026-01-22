@@ -26,7 +26,7 @@ pub trait ApplyPrimitive {
 }
 
 pub trait ApplyPrimitiveMut {
-    fn apply_primitive(&mut self, primitive: Primitive) -> Result<(), String>;
+    fn apply_primitive(&mut self, primitive: &Primitive) -> Result<(), String>;
 }
 
 impl std::fmt::Display for Primitive {
