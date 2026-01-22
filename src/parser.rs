@@ -1,5 +1,5 @@
-use crate::sexpr::{Atom, Sexpr};
 use crate::interpreter::Instruction;
+use crate::sexpr::{Atom, Sexpr};
 use std::collections::VecDeque;
 
 ////////////////////////////////////////////////////////////
@@ -378,7 +378,7 @@ mod tests {
     #[test]
     fn read_name_list() {
         let program = read(scan("(a b c)")).unwrap();
-        let line = Sexpr::car(&program).expect("Program should have at least one line"); 
+        let line = Sexpr::car(&program).expect("Program should have at least one line");
         let expected = Sexpr::cons(
             Sexpr::Single(Atom::Name("a".into())),
             Sexpr::cons(

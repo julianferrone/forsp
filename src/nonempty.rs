@@ -1,17 +1,17 @@
-use std::vec::Vec;
 use serde::{Deserialize, Serialize};
+use std::vec::Vec;
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct NonEmpty<T> {
     first: T,
-    rest: Vec<T>
+    rest: Vec<T>,
 }
 
 impl<T> NonEmpty<T> {
     pub fn singleton(first: T) -> NonEmpty<T> {
         NonEmpty {
             first: first,
-            rest: vec![]
+            rest: vec![],
         }
     }
 
@@ -24,19 +24,15 @@ impl<T> NonEmpty<T> {
     }
 
     pub fn last_mut(&mut self) -> &mut T {
-        self.rest
-            .last_mut()
-            .unwrap_or_else(|| &mut self.first)
+        self.rest.last_mut().unwrap_or_else(|| &mut self.first)
     }
 }
 
 impl<T: Clone> NonEmpty<T> {
     pub fn last(&self) -> &T {
-        self.rest
-            .last()
-            .unwrap_or_else(|| &self.first)
+        self.rest.last().unwrap_or_else(|| &self.first)
     }
-    
+
     pub fn pop_or_first(&mut self) -> T {
         self.pop().unwrap_or_else(|| self.first.clone())
     }

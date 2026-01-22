@@ -1,16 +1,16 @@
-use std::fmt::Display;
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum MessageType {
     Error,
-    Output
+    Output,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Message {
     pub typ: MessageType,
-    pub msg: String
+    pub msg: String,
 }
 
 impl Display for Message {

@@ -19,8 +19,6 @@ pub enum Primitive {
     Div,
 }
 
-
-
 pub trait ApplyPrimitive {
     fn apply_primitive(self, primitive: Primitive) -> Self;
 }

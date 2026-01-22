@@ -10,7 +10,7 @@ pub mod sexpr;
 pub mod vm;
 
 use crate::interpreter::{State, Value};
-use crate::message::{MessageType, Message};
+use crate::message::{Message, MessageType};
 use crate::parser::{read, scan};
 use crate::sexpr::Sexpr;
 
@@ -30,9 +30,10 @@ pub fn repl(state: State, user_input: &str) -> (State, Vec<String>) {
         Err(err) => {
             let err = Message {
                 typ: MessageType::Error,
-                msg: err.into()
-            }.to_string();
-            return (state, vec![err])
+                msg: err.into(),
+            }
+            .to_string();
+            return (state, vec![err]);
         }
     }
 }

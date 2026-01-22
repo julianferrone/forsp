@@ -3,7 +3,7 @@ use std::fmt::Display;
 
 use crate::env::Env;
 use crate::message::{Message, MessageType};
-use crate::primitive::{Primitive, ApplyPrimitive};
+use crate::primitive::{ApplyPrimitive, Primitive};
 use crate::sexpr::{Atom, Sexpr};
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -16,7 +16,7 @@ pub enum Instruction {
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Closure {
     instructions: Box<Value>,
-    env: Env<Value>
+    env: Env<Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -42,7 +42,7 @@ impl Value {
     fn make_closure(body: Value, env: Env<Value>) -> Value {
         Value::Closure(Closure {
             instructions: Box::new(body),
-            env: env
+            env: env,
         })
     }
 
@@ -108,7 +108,8 @@ impl From<Sexpr<Atom>> for Sexpr<Value> {
             Sexpr::Single(atom) => Sexpr::Single(atom.into()),
             // Sexpr::Pair(car, cdr) => Sexpr::cons((*car).into(), (*cdr).into()),
             Sexpr::List(atoms) => {
-                let values: Vec<Box<Sexpr<Value>>> = atoms.iter()
+                let values: Vec<Box<Sexpr<Value>>> = atoms
+                    .iter()
                     .map(|boxed| {
                         let atom: Sexpr<Atom> = *boxed.clone();
                         let sexpr = atom.into();
@@ -124,7 +125,9 @@ impl From<Sexpr<Atom>> for Sexpr<Value> {
 
 impl From<Env<Value>> for Value {
     fn from(value: Env<Value>) -> Value {
-        let sexprs: Vec<Box<Sexpr<Value>>> = value.0.into_iter()
+        let sexprs: Vec<Box<Sexpr<Value>>> = value
+            .0
+            .into_iter()
             .map(|(key, value): (String, Value)| {
                 let key = Box::new(Sexpr::Single(Value::make_name(key)));
                 let value = Box::new(Sexpr::Single(value.clone()));
@@ -151,8 +154,8 @@ impl std::fmt::Display for Value {
                 Task::PrintObject(obj) => match obj {
                     Value::Atom(name) => write!(f, "{name}")?,
                     Value::Closure(Closure {
-                        instructions: body, 
-                        env: _env
+                        instructions: body,
+                        env: _env,
                     }) => {
                         stack.push(Task::PrintStr(">"));
                         stack.push(Task::PrintObject(body));
@@ -206,7 +209,7 @@ impl State {
     pub fn flush_messages_to_stdout(self) -> State {
         self.messages.into_iter().for_each(|msg| println!("{msg}"));
         State {
-            messages: vec![], 
+            messages: vec![],
             ..self
         }
     }
@@ -216,7 +219,8 @@ impl State {
             messages: vec![],
             ..self
         };
-        let messages: Vec<String> = self.messages
+        let messages: Vec<String> = self
+            .messages
             .into_iter()
             .map(|msg| msg.to_string())
             .collect();
@@ -264,10 +268,13 @@ impl State {
         let mut stack = self.stack.clone();
         match stack.pop() {
             Some(value) => {
-                let state = State {stack: stack, ..self};
+                let state = State {
+                    stack: stack,
+                    ..self
+                };
                 Ok((value, state))
-            },
-            None => Err("pop expects stack to be non-empty".into())
+            }
+            None => Err("pop expects stack to be non-empty".into()),
         }
     }
 
@@ -291,7 +298,7 @@ impl State {
             Sexpr::List(sexprs) => {
                 let mut state = self;
                 let mut comp = sexprs;
-                loop { 
+                loop {
                     match comp.pop().to_owned() {
                         Some(cmd_box) => {
                             let cmd_value: Value = (*cmd_box.clone()).into();
@@ -308,13 +315,13 @@ impl State {
                                             continue;
                                         }
                                     }
-                                },
+                                }
                                 other => {
                                     state = state.eval(other);
                                 }
                             }
-                        },
-                        None => return state // No args to apply
+                        }
+                        None => return state, // No args to apply
                     }
                 }
             }
@@ -325,21 +332,18 @@ impl State {
         match expr {
             Value::Atom(ref atom) => match atom {
                 Atom::Name(name) => {
-                    let value: Result<Value, String> = self.env
-                        .find(&name)
-                        .cloned();
+                    let value: Result<Value, String> = self.env.find(&name).cloned();
 
                     match value {
                         Ok(Value::Primitive(func)) => self.apply_primitive(func),
 
                         Ok(Value::Closure(Closure {
-                            instructions: body, 
-                            env: closure_env
+                            instructions: body,
+                            env: closure_env,
                         })) => {
                             let saved_env = self.env.clone();
 
-                            let state = self.with_env(closure_env)
-                                .compute((*body).into());
+                            let state = self.with_env(closure_env).compute((*body).into());
 
                             state.with_env(saved_env)
                         }
@@ -414,9 +418,11 @@ fn prim_pop(state: State, env: Env<Value>) -> Result<State, String> {
     let ((key, value), state) = state.pop2()?;
     if let Value::Atom(Atom::Name(name)) = key {
         let env = env.define(name, value);
-        Ok(State {env: env, ..state })
+        Ok(State { env: env, ..state })
     } else {
-        let msg = format!("prim_pop expects the top of the stack to be Value::Atom(Atom::Name), got {key:?}");
+        let msg = format!(
+            "prim_pop expects the top of the stack to be Value::Atom(Atom::Name), got {key:?}"
+        );
         Err(msg)
     }
 }
@@ -465,9 +471,9 @@ fn prim_print(state: State, _env: Env<Value>) -> Result<State, String> {
     let mut messages = state.messages;
     messages.push(Message {
         typ: MessageType::Output,
-        msg: top.to_string()
+        msg: top.to_string(),
     });
-    
+
     Ok(State {
         messages: messages,
         ..state
@@ -479,17 +485,15 @@ const HELP: &str = include_str!("help.txt");
 fn prim_help(state: State, _env: Env<Value>) -> Result<State, String> {
     let help_messages = HELP
         .lines()
-        .map(|line| {
-            Message {
-                typ: MessageType::Output,
-                msg: line.to_owned()
-            }
+        .map(|line| Message {
+            typ: MessageType::Output,
+            msg: line.to_owned(),
         })
         .collect::<Vec<Message>>();
     let mut messages = state.messages;
     messages.extend(help_messages);
     Ok(State {
-        messages: messages, 
+        messages: messages,
         ..state
     })
 }
@@ -502,7 +506,7 @@ fn prim_stack(state: State, _env: Env<Value>) -> Result<State, String> {
 }
 
 fn prim_env(state: State, env: Env<Value>) -> Result<State, String> {
-  Ok(state.push(env.into()))
+    Ok(state.push(env.into()))
 }
 
 fn binary_num_op(a: Value, b: Value, func: fn(usize, usize) -> usize) -> Result<Value, String> {
@@ -576,11 +580,8 @@ mod tests {
     fn run_pop2() {
         let state = interpret_from_new("1 2");
         let (result, _state) = state.pop2().expect("Should be Ok");
-        let expected = (
-            Value::Atom(Atom::Num(2)),
-            Value::Atom(Atom::Num(1))
-        );
-        assert_eq!(result, expected) 
+        let expected = (Value::Atom(Atom::Num(2)), Value::Atom(Atom::Num(1)));
+        assert_eq!(result, expected)
     }
 
     #[test]
@@ -593,5 +594,4 @@ mod tests {
         );
         assert_eq!(result, expected)
     }
-
 }

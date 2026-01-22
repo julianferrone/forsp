@@ -1,8 +1,7 @@
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 use crate::primitive::Primitive;
-use crate::sexpr::{Sexpr, Atom};
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Env<T>(pub HashMap<String, T>);
@@ -32,7 +31,7 @@ impl<T> Env<T> {
 impl<T: std::convert::From<Primitive>> Env<T> {
     pub fn new() -> Env<T> {
         let mut env = Env(HashMap::new());
-        
+
         env.define_prim_mut("push", Primitive::Push);
         env.define_prim_mut("pop", Primitive::Pop);
         env.define_prim_mut("cons", Primitive::Cons);
@@ -48,24 +47,15 @@ impl<T: std::convert::From<Primitive>> Env<T> {
         env.define_prim_mut("*", Primitive::Mul);
         env.define_prim_mut("/", Primitive::Div);
         env.define_prim_mut("help", Primitive::Help);
-        
+
         env
     }
 
-    pub fn define_prim_mut(
-        self: &mut Env<T>, 
-        name: impl Into<String>, 
-        prim: impl Into<T> 
-    ) {
+    pub fn define_prim_mut(self: &mut Env<T>, name: impl Into<String>, prim: impl Into<T>) {
         self.define_mut(name.into(), prim.into())
     }
 
-    pub fn define_prim(
-        self: Env<T>, 
-        name: impl Into<String>, 
-        prim: impl Into<T>
-    ) -> Env<T> {
+    pub fn define_prim(self: Env<T>, name: impl Into<String>, prim: impl Into<T>) -> Env<T> {
         self.define(name.into(), prim.into())
     }
 }
-
