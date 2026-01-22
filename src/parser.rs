@@ -542,7 +542,37 @@ mod tests {
     }
 
     #[test]
-    fn parse_special_form_quote() {
+    fn parse_num() {
+        let input = "15";
+        let parsed = parse_str(input);
+        let expected = VecDeque::from([
+            vm::Instruction::PushValue(vm::Value::Atom(Atom::Num(15)))
+        ]);
+        assert_eq!(parsed, expected);
+    }
+
+    #[test]
+    fn parse_call() {
+        let input = "foo";
+        let parsed = parse_str(input);
+        let expected = VecDeque::from([
+            vm::Instruction::Call("foo".to_owned())
+        ]);
+        assert_eq!(parsed, expected);
+    }
+
+    #[test]
+    fn parse_primitive_plus() {
+        let input = "+";
+        let parsed = parse_str(input);
+        let expected = VecDeque::from([
+            vm::Instruction::ApplyPrimitive(Primitive::Add)
+        ]);
+        assert_eq!(parsed, expected);
+    }
+
+    #[test]
+    fn parse_quote_atom() {
         let input = "'foo";
         let parsed = parse_str(input);
         let expected = VecDeque::from([
@@ -552,7 +582,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_special_form_bind() {
+    fn parse_bind_atom() {
         let input = "$foo";
         let parsed = parse_str(input);
         let expected = VecDeque::from([
@@ -563,13 +593,51 @@ mod tests {
     }
 
     #[test]
-    fn parse_special_form_resolve() {
+    fn parse_resolve_atom() {
         let input = "^foo";
         let parsed = parse_str(input);
         let expected = VecDeque::from([
             vm::Instruction::PushValue(vm::Value::Atom(Atom::Name("foo".into()))),
             vm::Instruction::ApplyPrimitive(Primitive::Push),
         ]);
+        assert_eq!(parsed, expected);
+    }
+
+    #[test]
+    fn parse_quote_list() {
+        let input = "'(a b c)";
+        let parsed = parse_str(input);
+        let list = Sexpr::from_vec(vec![
+            vm::Value::Atom(Atom::Name("c".into())),
+            vm::Value::Atom(Atom::Name("b".into())),
+            vm::Value::Atom(Atom::Name("a".into())),
+        ]);
+        let expected = VecDeque::from([
+            vm::Instruction::PushValue(vm::Value::Sexpr(Box::new(list)))
+        ]);
+        assert_eq!(parsed, expected);
+    }
+
+    #[test]
+    fn parse_define_dup() {
+        let input = "($x ^x ^x) $dup";
+        let parsed = parse_str(input);
+
+        let dup_instructions = VecDeque::from([
+            vm::Instruction::PushValue(vm::Value::Atom(Atom::Name("x".into()))),
+            vm::Instruction::ApplyPrimitive(Primitive::Pop),
+            vm::Instruction::PushValue(vm::Value::Atom(Atom::Name("x".into()))),
+            vm::Instruction::ApplyPrimitive(Primitive::Push),
+            vm::Instruction::PushValue(vm::Value::Atom(Atom::Name("x".into()))),
+            vm::Instruction::ApplyPrimitive(Primitive::Push),
+        ]);
+
+        let expected = VecDeque::from([
+            vm::Instruction::MakeClosure(dup_instructions),
+            vm::Instruction::PushValue(vm::Value::Atom(Atom::Name("dup".into()))),
+            vm::Instruction::ApplyPrimitive(Primitive::Pop),
+        ]);
+
         assert_eq!(parsed, expected);
     }
 }
