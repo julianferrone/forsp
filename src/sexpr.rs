@@ -102,6 +102,16 @@ impl<T: Clone> Sexpr<T> {
         }
     }
 
+    pub fn car_mut(sexpr: &mut Sexpr<T>) -> Result<Sexpr<T>, String> {
+        match sexpr {
+            Sexpr::List(items) => items
+                .pop()
+                .map(|boxed| *boxed)
+                .ok_or("car_mut expects non-empty Sexpr::List".to_owned()),
+            _ => Err("car_mut expects Sexpr::List".into()),
+        }
+    }
+
     pub fn cdr(sexpr: &Sexpr<T>) -> Result<Sexpr<T>, String> {
         match sexpr {
             Sexpr::List(items) => items
