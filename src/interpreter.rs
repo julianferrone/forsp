@@ -485,7 +485,6 @@ fn prim_help(state: State, _env: Env<Value>) -> Result<State, String> {
                 msg: line.to_owned()
             }
         })
-        .rev()
         .collect::<Vec<Message>>();
     let mut messages = state.messages;
     messages.extend(help_messages);
