@@ -1,17 +1,17 @@
-use std::collections::{HashMap, VecDeque};
 use serde::{Deserialize, Serialize};
+use std::collections::VecDeque;
 
 use crate::env::Env;
 use crate::message::{Message, MessageType};
 use crate::nonempty::NonEmpty;
-use crate::primitive::{Primitive, ApplyPrimitiveMut};
+use crate::primitive::Primitive;
 use crate::sexpr::{Atom, Sexpr};
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum Value {
     Atom(Atom),
     Sexpr(Box<Sexpr<Value>>),
-    Closure(Closure)
+    Closure(Closure),
 }
 
 impl Value {
@@ -50,7 +50,7 @@ impl std::fmt::Display for Value {
         match self {
             Value::Atom(atom) => write!(f, "{atom}"),
             Value::Sexpr(sexpr) => write!(f, "{sexpr}"),
-            Value::Closure(closure) => write!(f, "{closure}")
+            Value::Closure(closure) => write!(f, "{closure}"),
         }
     }
 }
@@ -81,7 +81,9 @@ impl From<Value> for Sexpr<Value> {
 
 impl From<Env<Value>> for Sexpr<Value> {
     fn from(value: Env<Value>) -> Sexpr<Value> {
-        let sexprs: Vec<Box<Sexpr<Value>>> = value.0.into_iter()
+        let sexprs: Vec<Box<Sexpr<Value>>> = value
+            .0
+            .into_iter()
             .map(|(key, value): (String, Value)| {
                 let key = Box::new(Sexpr::Single(Value::make_name(key)));
                 let value = Box::new(Sexpr::Single(value));
@@ -96,14 +98,14 @@ impl From<Env<Value>> for Sexpr<Value> {
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Closure {
     body: VecDeque<Instruction>,
-    env: Env<Value>
+    env: Env<Value>,
 }
 
 impl Closure {
     fn new(body: VecDeque<Instruction>, env: Env<Value>) -> Closure {
         Closure {
             body: body,
-            env: env
+            env: env,
         }
     }
 
@@ -128,7 +130,8 @@ impl std::fmt::Display for Closure {
 pub enum Instruction {
     ApplyPrimitive(Primitive),
     Call(String),
-    PushValue(Value)
+    MakeClosure(VecDeque<Instruction>),
+    PushValue(Value),
 }
 
 impl std::fmt::Display for Instruction {
@@ -136,115 +139,141 @@ impl std::fmt::Display for Instruction {
         match self {
             Instruction::ApplyPrimitive(primitive) => write!(f, "APPLY<{primitive}>"),
             Instruction::Call(name) => write!(f, "CALL<{name}>"),
-            Instruction::PushValue(value) => write!(f, "PUSH<{value}>")
+            Instruction::MakeClosure(instructions) => {
+                let instructions: Sexpr<Instruction> = Vec::from(instructions.clone()).into();
+                write!(f, "MAKE_CLOSURE<{instructions}>")
+            }
+            Instruction::PushValue(value) => write!(f, "PUSH<{value}>"),
         }
     }
 }
 
 //////////             Core Primitives            //////////
 
-fn prim_push(vm: &mut VM) -> Result<(), String> {
-    let key = vm.pop_value()?;
-    if let Value::Atom(Atom::Name(key)) = key {
-        let value = vm.env().find(&key).cloned()?;
-        vm.push_value(value);
-        Ok(())
-    } else {
-        Err("Push expects key to be Value::Atom(Atom::Name)".into())
-    }
+fn prim_push(vm: &mut VM) -> VMStatus {
+    (|| {
+        let key = vm.pop_value()?;
+        if let Value::Atom(Atom::Name(key)) = key {
+            let value = vm.env().find(&key).cloned()?;
+            vm.push_value(value);
+            Ok(VMStatus::Continue)
+        } else {
+            Err("Push expects key to be Value::Atom(Atom::Name)".into())
+        }
+    })()
+    .unwrap_or_else(|err: String| VMStatus::Invalid(format!("cons failed: {err}")))
 }
 
-fn prim_pop(vm: &mut VM) -> Result<(), String> {
-    let (key, value) = vm.pop2_values()?;
-    if let Value::Atom(Atom::Name(key)) = key {
-        vm.env_mut().define_mut(key, value);
-        Ok(())
-    } else {
-        Err("Pop expects key to be Value::Atom(Atom::Name)".into())
-    }
+fn prim_pop(vm: &mut VM) -> VMStatus {
+    (|| {
+        let (key, value) = vm.pop2_values()?;
+        if let Value::Atom(Atom::Name(key)) = key {
+            vm.env_mut().define_mut(key, value);
+            Ok(VMStatus::Continue)
+        } else {
+            Err("Pop expects key to be Value::Atom(Atom::Name)".into())
+        }
+    })()
+    .unwrap_or_else(|err: String| VMStatus::Invalid(format!("pop failed: {err}")))
 }
 
-fn prim_eq(vm: &mut VM) -> Result<(), String> {
-    let (a, b) = vm.pop2_values()?;
-    let result = if a == b {
-        Value::make_name("t")
-    } else {
-        Value::nil()
-    };
-    vm.push_value(result);
-    Ok(())
-}
-
-fn prim_cons(vm: &mut VM) -> Result<(), String> {
-    let (a, b) = vm.pop2_values()?;
-    let pair = Value::cons(a, b);
-    vm.push_value(pair);
-    Ok(())
-}
-
-fn prim_car(vm: &mut VM) -> Result<(), String> {
-    let x = vm.pop_value()?;
-    let car = Value::car(x)?;
-    vm.push_value(car);
-    Ok(())
-}
-
-fn prim_cdr(vm: &mut VM) -> Result<(), String> {
-    let x = vm.pop_value()?;
-    let cdr = Value::cdr(x)?;
-    vm.push_value(cdr);
-    Ok(())
-}
-
-fn prim_cswap(vm: &mut VM) -> Result<(), String> {
-    let top = vm.pop_value()?;
-    if top == Value::make_name("t") {
+fn prim_eq(vm: &mut VM) -> VMStatus {
+    (|| {
         let (a, b) = vm.pop2_values()?;
-        vm.push_value(a);
-        vm.push_value(b);
-    };
-    Ok(())
+        let result = if a == b {
+            Value::make_name("t")
+        } else {
+            Value::nil()
+        };
+        vm.push_value(result);
+        Ok(VMStatus::Continue)
+    })()
+    .unwrap_or_else(|err: String| VMStatus::Invalid(format!("eq failed: {err}")))
 }
 
-fn prim_print(vm: &mut VM) -> Result<(), String> {
-    let top = vm.pop_value()?;
-    vm.messages.push(Message {
-        typ: MessageType::Output,
-        msg: top.to_string()
-    });
-    Ok(())
+fn prim_cons(vm: &mut VM) -> VMStatus {
+    (|| {
+        let (a, b) = vm.pop2_values()?;
+        let pair = Value::cons(a, b);
+        vm.push_value(pair);
+        Ok(VMStatus::Continue)
+    })()
+    .unwrap_or_else(|err: String| VMStatus::Invalid(format!("cons failed: {err}")))
+}
+
+fn prim_car(vm: &mut VM) -> VMStatus {
+    (|| {
+        let x = vm.pop_value()?;
+        let car = Value::car(x)?;
+        vm.push_value(car);
+        Ok(VMStatus::Continue)
+    })()
+    .unwrap_or_else(|err: String| VMStatus::Invalid(format!("car failed: {err}")))
+}
+
+fn prim_cdr(vm: &mut VM) -> VMStatus {
+    (|| {
+        let x = vm.pop_value()?;
+        let cdr = Value::cdr(x)?;
+        vm.push_value(cdr);
+        Ok(VMStatus::Continue)
+    })()
+    .unwrap_or_else(|err: String| VMStatus::Invalid(format!("cdr failed: {err}")))
+}
+
+fn prim_cswap(vm: &mut VM) -> VMStatus {
+    (|| {
+        let top = vm.pop_value()?;
+        if top == Value::make_name("t") {
+            let (a, b) = vm.pop2_values()?;
+            vm.push_value(a);
+            vm.push_value(b);
+        };
+        Ok(VMStatus::Continue)
+    })()
+    .unwrap_or_else(|err: String| VMStatus::Invalid(format!("cswap failed: {err}")))
+}
+
+fn prim_print(vm: &mut VM) -> VMStatus {
+    match vm.pop_value() {
+        Ok(value) => {
+            vm.push_message(Message {
+                typ: MessageType::Output,
+                msg: value.to_string(),
+            });
+            VMStatus::Continue
+        }
+        Err(err) => VMStatus::Invalid(format!("print failed: {err}")),
+    }
 }
 
 const HELP: &str = include_str!("help.txt");
 
-
-fn prim_help(vm: &mut VM) -> Result<(), String> {
+fn prim_help(vm: &mut VM) -> VMStatus {
     let help_messages = HELP
         .lines()
-        .map(|line| {
-            Message {
-                typ: MessageType::Output,
-                msg: line.to_owned()
-            }
+        .map(|line| Message {
+            typ: MessageType::Output,
+            msg: line.to_owned(),
         })
         .rev()
         .collect::<Vec<Message>>();
     vm.messages.extend(help_messages);
-    Ok(())
+    VMStatus::Continue
 }
 
 //////////            Extra Primitives            //////////.
 
-fn prim_stack(vm: &mut VM) -> Result<(), String> {
+fn prim_stack(vm: &mut VM) -> VMStatus {
     let stack = vm.data.clone();
     vm.push_value(Value::Sexpr(Box::new(stack.into())));
-    Ok(())
+    VMStatus::Continue
 }
 
-fn prim_env(vm: &mut VM) -> Result<(), String> {
+fn prim_env(vm: &mut VM) -> VMStatus {
     let env: Sexpr<Value> = vm.env().clone().into();
     vm.push_value(env.into());
-    Ok(())
+    VMStatus::Continue
 }
 
 fn binary_num_op(a: Value, b: Value, func: fn(usize, usize) -> usize) -> Result<Value, String> {
@@ -258,36 +287,63 @@ fn binary_num_op(a: Value, b: Value, func: fn(usize, usize) -> usize) -> Result<
     }
 }
 
-fn prim_add(vm: &mut VM) -> Result<(), String> {
-    let (a, b) = vm.pop2_values()?;
-    let result = binary_num_op(a, b, |a, b| a + b)?;
-    vm.push_value(result);
-    Ok(())
+fn prim_add(vm: &mut VM) -> VMStatus {
+    let result: Result<Value, String> = vm
+        .pop2_values()
+        .and_then(|(a, b)| binary_num_op(a, b, |a, b| b + a));
+
+    match result {
+        Ok(value) => {
+            vm.push_value(value);
+            VMStatus::Continue
+        }
+        Err(err) => VMStatus::Invalid(err),
+    }
 }
 
-fn prim_sub(vm: &mut VM) -> Result<(), String> {
-    let (a, b) = vm.pop2_values()?;
-    let result = binary_num_op(a, b, |a, b| b - a)?;
-    vm.push_value(result);
-    Ok(())
+fn prim_sub(vm: &mut VM) -> VMStatus {
+    let result: Result<Value, String> = vm
+        .pop2_values()
+        .and_then(|(a, b)| binary_num_op(a, b, |a, b| b - a));
+
+    match result {
+        Ok(value) => {
+            vm.push_value(value);
+            VMStatus::Continue
+        }
+        Err(err) => VMStatus::Invalid(err),
+    }
 }
 
-fn prim_mul(vm: &mut VM) -> Result<(), String> {
-    let (a, b) = vm.pop2_values()?;
-    let result = binary_num_op(a, b, |a, b| a * b)?;
-    vm.push_value(result);
-    Ok(())
+fn prim_mul(vm: &mut VM) -> VMStatus {
+    let result: Result<Value, String> = vm
+        .pop2_values()
+        .and_then(|(a, b)| binary_num_op(a, b, |a, b| b * a));
+
+    match result {
+        Ok(value) => {
+            vm.push_value(value);
+            VMStatus::Continue
+        }
+        Err(err) => VMStatus::Invalid(err),
+    }
 }
 
-fn prim_div(vm: &mut VM) -> Result<(), String> {
-    let (a, b) = vm.pop2_values()?;
-    let result = binary_num_op(a, b, |a, b| b / a)?;
-    vm.push_value(result);
-    Ok(())
+fn prim_div(vm: &mut VM) -> VMStatus {
+    let result: Result<Value, String> = vm
+        .pop2_values()
+        .and_then(|(a, b)| binary_num_op(a, b, |a, b| b / a));
+
+    match result {
+        Ok(value) => {
+            vm.push_value(value);
+            VMStatus::Continue
+        }
+        Err(err) => VMStatus::Invalid(err),
+    }
 }
 
-
-fn get_primitive_function(primitive: &Primitive) -> fn(&mut VM) -> Result<(), String> {
+fn get_primitive_function(primitive: &Primitive) -> fn(&mut VM) -> VMStatus {
     match primitive {
         Primitive::Push => prim_push,
         Primitive::Pop => prim_pop,
@@ -313,19 +369,19 @@ fn get_primitive_function(primitive: &Primitive) -> fn(&mut VM) -> Result<(), St
 pub struct VM {
     call_stack: NonEmpty<Closure>,
     data: Vec<Value>,
-    messages: Vec<Message>
+    messages: Vec<Message>,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum VMStatus {
-    // VM can continue 
+    // VM can continue
     Continue,
     // Waiting for web worker to print message
-    Suspend,       
+    Suspend,
     // Waiting for instructions from user
-    RequestInput,  
+    RequestInput,
     // User input invalid instructions -- reset to previous state
-    InvalidInput, 
+    Invalid(String),
 }
 
 impl VM {
@@ -334,12 +390,12 @@ impl VM {
         VM {
             call_stack: NonEmpty::singleton(base_closure),
             data: vec![],
-            messages: vec![]
+            messages: vec![],
         }
     }
-    
+
     ////// Operations on data stack //////
-    
+
     fn push_value(&mut self, value: Value) {
         self.data.push(value);
     }
@@ -397,42 +453,59 @@ impl VM {
         self.current_closure_mut().pop_instruction()
     }
 
+    fn set_instructions(&mut self, instructions: VecDeque<Instruction>) {
+        self.current_closure_mut().body = instructions;
+    }
+
     ////// Evaluation //////
 
-    fn eval_instruction(&mut self, instruction: Instruction) -> Result<(), String> {
+    fn apply_primitive(&mut self, primitive: &Primitive) -> VMStatus {
+        let func = get_primitive_function(primitive);
+        func(self)
+    }
+
+    fn eval_instruction(&mut self, instruction: Instruction) -> VMStatus {
         match instruction {
             Instruction::ApplyPrimitive(prim) => self.apply_primitive(&prim),
             Instruction::Call(name) => {
-                let value: Value = self.env().find(&name)?.clone();
+                let value = self.env().find(&name).cloned();
                 match value {
-                    Value::Atom(_) | Value::Sexpr(_) => {
-                        self.push_value(value);
-                        Ok(())
-                    },
-                    Value::Closure(closure) => {
-                        self.push_closure(closure);
-                        Ok(())
+                    Ok(value) => {
+                        match value {
+                            Value::Atom(_) | Value::Sexpr(_) => self.push_value(value),
+                            Value::Closure(closure) => self.push_closure(closure),
+                        };
+                        VMStatus::Continue
                     }
+                    Err(err) => VMStatus::Invalid(err),
                 }
-            },
+            }
+            Instruction::MakeClosure(instructions) => {
+                let closure = self.make_closure(instructions);
+                self.push_value(Value::Closure(closure));
+                VMStatus::Continue
+            }
             Instruction::PushValue(value) => {
                 self.push_value(value);
-                Ok(())
-            },
+                VMStatus::Continue
+            }
         }
     }
 
-    fn step(&mut self) -> Result<(), String> {
-        let instruction: Instruction = self.pop_instruction()
-            .ok_or("No more instructions to step through".to_owned())?;
-        self.eval_instruction(instruction)
+    fn step(&mut self) -> VMStatus {
+        let instruction: Option<Instruction> = self.pop_instruction();
+        match instruction {
+            Some(instruction) => self.eval_instruction(instruction),
+            None => VMStatus::RequestInput,
+        }
     }
-}
 
-impl ApplyPrimitiveMut for VM {
-    fn apply_primitive(&mut self, primitive: &Primitive) -> Result<(), String> {
-        let func = get_primitive_function(primitive);
-        func(self)
+    fn step_until_yield(&mut self) -> VMStatus {
+        let mut status = VMStatus::Continue;
+        while let VMStatus::Continue = status {
+            status = self.step();
+        }
+        status
     }
 }
 
@@ -441,7 +514,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn run_add_value_instruction() {
+    fn push_value() {
         let expected = Value::Atom(Atom::Num(1));
         let mut vm = VM::new();
         let _ = vm.eval_instruction(Instruction::PushValue(expected.clone()));
@@ -450,7 +523,7 @@ mod tests {
     }
 
     #[test]
-    fn run_primitive_instruction_mul() {
+    fn primitive_instruction_mul() {
         let two = Value::Atom(Atom::Num(2));
         let three = Value::Atom(Atom::Num(3));
         let six = Value::Atom(Atom::Num(6));
@@ -458,7 +531,7 @@ mod tests {
         let instructions = vec![
             Instruction::PushValue(two),
             Instruction::PushValue(three),
-            Instruction::ApplyPrimitive(Primitive::Mul)
+            Instruction::ApplyPrimitive(Primitive::Mul),
         ];
         for instruction in instructions {
             let _ = vm.eval_instruction(instruction);
@@ -467,16 +540,32 @@ mod tests {
         assert_eq!(result, six)
     }
 
-    // #[test]
-    // fn run_call_instruction() {
-    //     let two = Value::Atom(Atom::Num(2));
-    //     let three = Value::Atom(Atom::Num(3));
-    //     let five = Value::Atom(Atom::Num(5));
-    //     let mut vm = VM::new();
-    //     let _ = vm.eval_instruction(Instruction::PushValue(two));
-    //     let _ = vm.eval_instruction(Instruction::PushValue(three));
-    //     let _ = vm.eval_instruction(Instruction::Call("+".to_owned()));
-    //     let result = vm.pop_value().expect("Should be Ok");
-    //     assert_eq!(result, five)
-    // }
+    #[test]
+    fn make_and_call_dup() {
+        let mut vm = VM::new();
+
+        let dup_instructions: VecDeque<Instruction> = VecDeque::from([
+            Instruction::PushValue(Value::Atom(Atom::Name("x".into()))),
+            Instruction::ApplyPrimitive(Primitive::Pop),
+            Instruction::PushValue(Value::Atom(Atom::Name("x".into()))),
+            Instruction::ApplyPrimitive(Primitive::Push),
+            Instruction::PushValue(Value::Atom(Atom::Name("x".into()))),
+            Instruction::ApplyPrimitive(Primitive::Push),
+        ]);
+
+        let one = Value::Atom(Atom::Num(1));
+        let instructions: VecDeque<Instruction> = VecDeque::from([
+            Instruction::MakeClosure(dup_instructions),
+            Instruction::PushValue(Value::Atom(Atom::Name("dup".into()))),
+            Instruction::ApplyPrimitive(Primitive::Pop),
+            Instruction::PushValue(one.clone()),
+            Instruction::Call("dup".to_owned()),
+        ]);
+        vm.set_instructions(instructions);
+        vm.step_until_yield();
+        let first = vm.pop_value().expect("Should be Ok");
+        assert_eq!(first, one.clone());
+        let second = vm.pop_value().expect("Should be Ok");
+        assert_eq!(second, one.clone());
+    }
 }
