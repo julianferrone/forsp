@@ -227,7 +227,10 @@ mod tests {
         let actual: Sexpr<usize> = vec.into();
         let expected: Sexpr<usize> = Sexpr::cons(
             Sexpr::Single(1),
-            Sexpr::cons(Sexpr::Single(2), Sexpr::cons(Sexpr::Single(3), Sexpr::nil())),
+            Sexpr::cons(
+                Sexpr::Single(2),
+                Sexpr::cons(Sexpr::Single(3), Sexpr::nil()),
+            ),
         );
         assert_eq!(actual, expected);
     }
