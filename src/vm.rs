@@ -86,9 +86,9 @@ impl From<Env<Value>> for Sexpr<Value> {
             .0
             .into_iter()
             .map(|(key, value): (String, Value)| {
-                let key = Box::new(Sexpr::Single(Value::make_name(key)));
-                let value = Box::new(Sexpr::Single(value));
-                let pair = Sexpr::List(vec![key, value]);
+                let key = Sexpr::Single(Value::make_name(key));
+                let value = Sexpr::Single(value);
+                let pair = Sexpr::cons(key, value);
                 Box::new(pair)
             })
             .collect();
@@ -122,8 +122,7 @@ impl Closure {
 impl std::fmt::Display for Closure {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let body: Sexpr<Instruction> = Sexpr::from_vec(self.body.clone().into());
-        let env: Sexpr<Value> = self.env.clone().into();
-        write!(f, "CLOSURE<{body} {env}>")
+        write!(f, "CLOSURE<{body}>")
     }
 }
 
