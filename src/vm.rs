@@ -459,12 +459,25 @@ impl VM {
         self.call_stack.push(closure)
     }
 
+    fn pop_closure(&mut self) -> Option<Closure> {
+        self.call_stack.pop()
+    }
+
     fn current_instruction(&self) -> Option<&Instruction> {
         self.current_closure().current_instruction()
     }
 
     fn pop_instruction(&mut self) -> Option<Instruction> {
-        self.current_closure_mut().pop_instruction()
+        let mut instruction = self.current_closure_mut().pop_instruction();
+        while let None = instruction {
+            match self.pop_closure() {
+                Some(_) => {
+                    instruction = self.current_closure_mut().pop_instruction();
+                },
+                None => return None,
+            }
+        }
+        instruction
     }
 
     pub fn set_instructions(&mut self, instructions: VecDeque<Instruction>) {
@@ -584,5 +597,6 @@ mod tests {
         assert_eq!(first, one.clone());
         let second = vm.pop_value().expect("Should be Ok");
         assert_eq!(second, one.clone());
+        assert!(vm.call_stack.rest_is_empty(), "Call stack should be empty after running all instructions");
     }
 }
