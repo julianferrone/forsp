@@ -386,7 +386,7 @@ pub enum VMStatus {
 }
 
 impl VM {
-    fn new() -> VM {
+    pub fn new() -> VM {
         let base_closure = Closure::new(VecDeque::new(), Env::empty());
         VM {
             call_stack: NonEmpty::singleton(base_closure),
@@ -421,7 +421,7 @@ impl VM {
         self.messages.push(message);
     }
 
-    fn flush_messages(&mut self) -> Vec<Message> {
+    pub fn flush_messages(&mut self) -> Vec<Message> {
         mem::take(&mut self.messages)
     }
 
@@ -467,7 +467,7 @@ impl VM {
         self.current_closure_mut().pop_instruction()
     }
 
-    fn set_instructions(&mut self, instructions: VecDeque<Instruction>) {
+    pub fn set_instructions(&mut self, instructions: VecDeque<Instruction>) {
         self.current_closure_mut().body = instructions;
     }
 
@@ -514,11 +514,14 @@ impl VM {
         }
     }
 
-    fn step_until_yield(&mut self) -> VMStatus {
+    pub fn step_until_yield(&mut self) -> VMStatus {
         let mut status = VMStatus::Continue;
         while let VMStatus::Continue = status {
             status = self.step();
         }
+        if let VMStatus::Invalid(ref err_msg) = status {
+            self.push_message(Message::msg_error(err_msg));
+        };
         status
     }
 }
