@@ -425,7 +425,7 @@ impl VM {
         mem::take(&mut self.messages)
     }
 
-    fn flush_messages_std(&mut self) {
+    fn print_messages(&mut self) {
         let messages = self.flush_messages();
         for message in messages {
             Message::print(&message);
