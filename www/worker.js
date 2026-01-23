@@ -48,7 +48,7 @@ async function init_vm() {
         log('Current repl state', new_state);
         
         // Invalid state => don't overwrite repl_state
-        if (new_state.hasOwnProperty('Invalid')) {
+        if (new_state.status.hasOwnProperty('Invalid')) {
             flush_messages(new_state);
         };
         
