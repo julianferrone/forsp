@@ -257,7 +257,6 @@ fn prim_help(vm: &mut VM) -> VMStatus {
             typ: MessageType::Output,
             msg: line.to_owned(),
         })
-        .rev()
         .collect::<Vec<Message>>();
     vm.messages.extend(help_messages);
     VMStatus::Continue
