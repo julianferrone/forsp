@@ -228,7 +228,9 @@ fn quoted(value: Sexpr<Atom>) -> vm::Value {
 }
 
 pub fn parse(mut atoms: Sexpr<Atom>) -> Result<VecDeque<vm::Instruction>, String> {
-    assert!(matches!(atoms, Sexpr::List(_)));
+    if not matches!(atoms, Sexpr::List(_)) {
+        return Err("parse expects atoms to be a Sexpr::List".into())
+    };
     let mut car = Sexpr::car_mut(&mut atoms);
     let mut do_quote = false;
     let mut instructions = VecDeque::new();
