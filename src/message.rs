@@ -22,3 +22,13 @@ impl Display for Message {
         write!(f, "{}{}", typ, self.msg)
     }
 }
+
+impl Message {
+    pub fn print(message: &Message) {
+        let display = message.to_string();
+        match message.typ {
+            MessageType::Error => eprintln!("{display}"),
+            MessageType::Output => println!("{display}")
+        };
+    }
+}

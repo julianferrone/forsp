@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
+use std::mem;
 
 use crate::env::Env;
 use crate::message::{Message, MessageType};
@@ -400,10 +401,6 @@ impl VM {
         self.data.push(value);
     }
 
-    fn push_message(&mut self, message: Message) {
-        self.messages.push(message);
-    }
-
     fn pop_value(&mut self) -> Result<Value, String> {
         self.data
             .pop()
@@ -416,6 +413,23 @@ impl VM {
         let a = self.pop_value()?;
         let b = self.pop_value()?;
         Ok((a, b))
+    }
+
+    ////// Operations on messages //////
+
+    fn push_message(&mut self, message: Message) {
+        self.messages.push(message);
+    }
+
+    fn flush_messages(&mut self) -> Vec<Message> {
+        mem::take(&mut self.messages)
+    }
+
+    fn flush_messages_std(&mut self) {
+        let messages = self.flush_messages();
+        for message in messages {
+            Message::print(&message);
+        }
     }
 
     ////// Operations on current environment //////
