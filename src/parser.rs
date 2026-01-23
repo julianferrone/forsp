@@ -197,20 +197,21 @@ pub fn read(mut tokens: VecDeque<Token>) -> Result<Sexpr<Atom>, String> {
             }
         }
     }
-    // println!("Stack: {stack:?}");
-    if !stack.len() == 1 {
-        return Err("Unclosed '('".to_owned());
+
+    if stack.len() != 1 {
+        Err("Unclosed '('".to_owned())
+    } else {
+        let result = stack
+            .pop()
+            .ok_or("Empty input".to_owned())?
+            .rev_items
+            .reverse_list();
+        Ok(result)
     }
-    let result = stack
-        .pop()
-        .ok_or("Empty input".to_owned())?
-        .rev_items
-        .reverse_list();
-    Ok(result)
 }
 
 ////////////////////////////////////////////////////////////
-//                          Tests                         //
+//                         Parsing                        //
 ////////////////////////////////////////////////////////////
 
 fn quoted(value: Sexpr<Atom>) -> vm::Value {
@@ -462,6 +463,16 @@ mod tests {
             ),
         );
         assert_eq!(line, expected);
+    }
+
+    #[test]
+    fn read_too_many_open_brackets_fails() {
+        read(scan("(1 2 3")).expect_err("Should fail with imbalanced parentheses");
+    }
+
+    #[test]
+    fn read_too_many_close_brackets_fails() {
+        read(scan("1 2 3)")).expect_err("Should fail with imbalanced parentheses");
     }
 
     fn check_display(input: &str, expected: &str) {
