@@ -31,4 +31,19 @@ impl Message {
             MessageType::Output => println!("{display}")
         };
     }
+   
+    pub fn new(typ: MessageType, msg: impl Into<String>) -> Message {
+        Message {
+            typ: typ,
+            msg: msg.into()
+        }
+    }
+
+    pub fn msg(msg: impl Into<String>) -> Message {
+        Message::new(MessageType::Output, msg)
+    }
+
+    pub fn msg_error(msg: impl Into<String>) -> Message {
+        Message::new(MessageType::Error, msg)
+    }
 }
