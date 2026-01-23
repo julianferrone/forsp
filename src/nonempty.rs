@@ -26,6 +26,10 @@ impl<T> NonEmpty<T> {
     pub fn last_mut(&mut self) -> &mut T {
         self.rest.last_mut().unwrap_or_else(|| &mut self.first)
     }
+
+    pub fn rest_is_empty(&self) -> bool {
+        self.rest.is_empty()
+    }
 }
 
 impl<T: Clone> NonEmpty<T> {
