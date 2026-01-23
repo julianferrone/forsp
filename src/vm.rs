@@ -242,7 +242,7 @@ fn prim_print(vm: &mut VM) -> VMStatus {
                 typ: MessageType::Output,
                 msg: value.to_string(),
             });
-            VMStatus::Continue
+            VMStatus::Suspend
         }
         Err(err) => VMStatus::Invalid(format!("print failed: {err}")),
     }
