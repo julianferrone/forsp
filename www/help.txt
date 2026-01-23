@@ -1,0 +1,12 @@
+    __________  ____  _____ ____
+   / ____/ __ \/ __ \/ ___// __ \
+  / /_  / / / / /_/ /\__ \/ /_/ /
+ / __/ / /_/ / _, _/___/ / ____/
+/_/    \____/_/ |_|/____/_/
+
+Welcome to Forsp! 
+
+Read about Forsp at 'https://xorvoid.com/forsp.html' for a walkthrough of
+the language.
+
+Type 'help' for a list of all the primitives.

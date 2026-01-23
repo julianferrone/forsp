@@ -4,6 +4,10 @@ const rendered = document.getElementById("rendered-input");
 const cursor = document.getElementById("cursor");
 const output = document.getElementById("output");
 
+function log(label, data = {}) {
+    console.log(`${label}`, data);
+}
+
 function appendText(text) {
     if (text.length <= 80) {
         appendLine(text)
@@ -24,15 +28,16 @@ function appendLine(text) {
     output.scrollTop = output.scrollHeight;
 }
 
-[
-    "    __________  ____  _____ ____ ",
-    "   / ____/ __ \\/ __ \\/ ___// __ \\",
-    "  / /_  / / / / /_/ /\\__ \\/ /_/ /",
-    " / __/ / /_/ / _, _/___/ / ____/ ",
-    "/_/    \\____/_/ |_|/____/_/      ",
-    "                                 ",
-    "Welcome to Forsp!"
-].forEach(line => appendLine(line))
+async function print_help() {
+    fetch('/help.txt')
+        .then(response => response.text())
+        .then(text => {
+            const lines = text.split(/\r?\n/);
+            lines.forEach(line => appendLine(line));
+        })
+}
+
+print_help()
 
 function render() {
     const value = input.value;
@@ -100,7 +105,7 @@ input.addEventListener("keydown", (e) => {
 
 worker.onmessage = (e) => {
     const msgs = e.data;
-    console.log(`Message received from worker: ${msgs}`);
+    log('Message received from worker', msgs);
     msgs.forEach(line => appendLine(line));
 }
 
