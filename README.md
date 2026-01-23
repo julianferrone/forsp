@@ -1,6 +1,6 @@
 # Forsp
 
-A Forsp interpreter, written in Rust and compiled to WASM.
+A Forsp interpreter and VM, written in Rust and compiled to WASM.
 
 ## What is Forsp?
 
@@ -12,7 +12,7 @@ himself](https://xorvoid.com/forsp.html).
 
 ### julianferrone.com
 
-You can try out the interpreter at [my personal
+You can try out the VM at [my personal
 website](https://forsp.julianferrone.com/).
 
 It runs 100% client-side -- no data is collected (besides Nginx access logs) and
@@ -23,25 +23,39 @@ particularly fast, and the REPL will let you send multiple inputs even while
 it's processing.
 
 You could send a slow command, then immediately send `stack print` to print the
-current state, and the REPL won't stop you at all. The commands will eventually
+current stack, and the REPL won't stop you at all. The commands will eventually
 get processed, but it might seem like it's frozen.
+
+The new VM now yields to the web worker whenever there's a print statement --
+which means that if there's a long-running command (probably due to recursion),
+the VM will output a message every time it reaches a print statement, so at
+least it won't seem to have frozen.
+
+You can still send inputs while it's processing, though. And you still can't
+cancel while the VM is evaluating instructions.
 
 ### DIY
 
 To build this repo, you'll need wasm-pack installed.
 
-```shell cargo install wasm-pack ```
+```shell 
+cargo install wasm-pack
+```
 
 Build the WASM binaries with:
 
-```shell wasm-pack build --out-dir www/pkg --target no-modules ```
+```shell
+wasm-pack build --out-dir www/pkg --target no-modules
+```
 
 Which will produce compilation output under the **/www/pkg** folder.
 
 You can then run this by running a local HTTP server from the **/www** folder,
 such as by using Python's built-in server:
 
-```shell cd ./www python3 -m http.server --bind 127.0.0.1 ```
+```shell
+cd ./www python3 -m http.server --bind 127.0.0.1
+```
 
 ## Todo
 
@@ -65,48 +79,13 @@ such as by using Python's built-in server:
     instruction at a time--e.g. when we see a special form "^foo", we'll have to
     pull two instructions--one being Instruction::Quote("foo"), the next being
     Instruction::Push)
-- [ ] Update scan/read/parse types
-  - scan should pull characters and output Tokens
-  - read should pull Tokens and output a Sexpr<Atom>
-    - read should only do 2 things: 1. expand the syntactic special forms `' $
-      ^` 2. collect stuff between parens as a list
+- [x] Update scan/read/parse types
+  - scan should pull characters and output `Token`s
+  - read should pull `Token`s and output a `Sexpr<Atom>`
+    - read should only do 2 things: expand the syntactic special forms `' $ ^`,
+      and collect stuff between parens as a list
   - parse should pull Sexpr<Token>s and output an Instruction
     - parse creates the proper AST
-
-In Haskell syntax, these types would look like:
-
-```haskell 
-data Atom = Named String | Num Int 
-
-data Token = 
-  TAtom Atom 
-  | ParenOpen 
-  | ParenClose 
-  | Quote 
-  | Dollar 
-  | Caret 
-  | Whitespace 
-  | Newline 
-  | Semicolon
-
-data Sexpr a = Single a 
-  | Many [Sexpr a]
-
-type Env = Map String Instruction
-
-data Value = 
-  VAtom Atom 
-  | List (Sexpr Value) 
-  | Closure [Instruction] Env
-
-data Primitive = Push | Pop | Car | ...
-
-data Instruction = 
-  IValue Value            -- Add this value to top of stack 
-  | ICall String          -- Call function with name 
-  | IPrimitive Primitive  -- Call primitive function on stack 
-```
-
 - [ ] Add ability to save and load system states as files
 - [ ] Create pipeline to inline all the files into one HTML file
   - I'd like for people to be able to just download one file that they can run
