@@ -14,7 +14,7 @@ impl<T> Env<T> {
     pub fn find(self: &Env<T>, key: &str) -> Result<&T, String> {
         self.0
             .get(key)
-            .ok_or("Could not find value for key".to_owned())
+            .ok_or(format!("Could not find value for key '{key}'"))
     }
 
     pub fn define_mut(self: &mut Env<T>, key: impl Into<String>, value: T) {
