@@ -7,13 +7,6 @@ use crate::primitive::{ApplyPrimitive, Primitive};
 use crate::sexpr::{Atom, Sexpr};
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub enum Instruction {
-    AddValue(Value),
-    Call(String),
-    Primitive(Primitive),
-}
-
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Closure {
     instructions: Box<Value>,
     env: Env<Value>,
