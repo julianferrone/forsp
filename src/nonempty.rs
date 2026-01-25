@@ -48,14 +48,14 @@ mod tests {
 
     #[test]
     fn pop_singleton() {
-        let mut nonempty: NonEmpty<usize> = NonEmpty::singleton(1);
+        let mut nonempty: NonEmpty<i64> = NonEmpty::singleton(1);
         assert_eq!(nonempty.pop(), None);
         assert_eq!(nonempty.pop_or_first(), 1);
     }
 
     #[test]
     fn push_then_pop() {
-        let mut nonempty: NonEmpty<usize> = NonEmpty::singleton(1);
+        let mut nonempty: NonEmpty<i64> = NonEmpty::singleton(1);
         nonempty.push(2);
         assert_eq!(nonempty.pop_or_first(), 2);
         assert_eq!(nonempty.pop_or_first(), 1);

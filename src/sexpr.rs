@@ -9,7 +9,7 @@ use std::fmt::Display;
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Atom {
     Name(String),
-    Num(usize),
+    Num(i64),
 }
 
 impl Atom {
@@ -169,13 +169,13 @@ mod tests {
 
     #[test]
     fn extend_first_single() {
-        let first: Sexpr<usize> = Sexpr::Single(1);
-        let second: Sexpr<usize> = Sexpr::cons(
+        let first: Sexpr<i64> = Sexpr::Single(1);
+        let second: Sexpr<i64> = Sexpr::cons(
             Sexpr::Single(2),
             Sexpr::cons(Sexpr::Single(3), Sexpr::nil()),
         );
 
-        let expected: Sexpr<usize> = Sexpr::cons(
+        let expected: Sexpr<i64> = Sexpr::cons(
             Sexpr::Single(1),
             Sexpr::cons(
                 Sexpr::Single(2),
@@ -187,15 +187,15 @@ mod tests {
 
     #[test]
     fn extend_second_nil() {
-        let first: Sexpr<usize> = Sexpr::cons(Sexpr::Single(1), Sexpr::nil());
-        let second: Sexpr<usize> = Sexpr::nil();
+        let first: Sexpr<i64> = Sexpr::cons(Sexpr::Single(1), Sexpr::nil());
+        let second: Sexpr<i64> = Sexpr::nil();
         assert_eq!(Sexpr::extend(first.clone(), second), first);
     }
 
     #[test]
     fn cons_then_car() {
-        let first: Sexpr<usize> = Sexpr::Single(1);
-        let rest: Sexpr<usize> = Sexpr::cons(
+        let first: Sexpr<i64> = Sexpr::Single(1);
+        let rest: Sexpr<i64> = Sexpr::cons(
             Sexpr::Single(2),
             Sexpr::cons(Sexpr::Single(3), Sexpr::nil()),
         );
@@ -205,8 +205,8 @@ mod tests {
 
     #[test]
     fn cons_then_cdr() {
-        let first: Sexpr<usize> = Sexpr::Single(1);
-        let rest: Sexpr<usize> = Sexpr::cons(
+        let first: Sexpr<i64> = Sexpr::Single(1);
+        let rest: Sexpr<i64> = Sexpr::cons(
             Sexpr::Single(2),
             Sexpr::cons(Sexpr::Single(3), Sexpr::nil()),
         );
@@ -216,8 +216,8 @@ mod tests {
 
     #[test]
     fn split_list() {
-        let expected_first: Sexpr<usize> = Sexpr::Single(1);
-        let expected_rest: Sexpr<usize> = Sexpr::cons(
+        let expected_first: Sexpr<i64> = Sexpr::Single(1);
+        let expected_rest: Sexpr<i64> = Sexpr::cons(
             Sexpr::Single(2),
             Sexpr::cons(Sexpr::Single(3), Sexpr::nil()),
         );
@@ -233,9 +233,9 @@ mod tests {
         // push/pop on the vec when working with Sexpr::List).
         // As such we need to provide the vector in reverse
         // ...I guess this makes it more like a Snoc-tree than a Cons-list
-        let vec: Vec<usize> = vec![3, 2, 1];
-        let actual: Sexpr<usize> = vec.into();
-        let expected: Sexpr<usize> = Sexpr::cons(
+        let vec: Vec<i64> = vec![3, 2, 1];
+        let actual: Sexpr<i64> = vec.into();
+        let expected: Sexpr<i64> = Sexpr::cons(
             Sexpr::Single(1),
             Sexpr::cons(
                 Sexpr::Single(2),

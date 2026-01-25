@@ -17,7 +17,7 @@ pub enum Token {
     BracketClose,
     WhiteSpace,
     NewLine,
-    Int(usize),
+    Int(i64),
     Literal(String),
 }
 
@@ -28,7 +28,7 @@ fn is_special_char(c: char) -> bool {
 }
 
 fn to_token(atom: String) -> Token {
-    match atom.parse::<usize>() {
+    match atom.parse::<i64>() {
         Ok(int) => Token::Int(int),
         Err(_) => Token::Literal(atom),
     }

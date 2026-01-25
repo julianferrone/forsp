@@ -502,7 +502,7 @@ fn prim_env(state: State, env: Env<Value>) -> Result<State, String> {
     Ok(state.push(env.into()))
 }
 
-fn binary_num_op(a: Value, b: Value, func: fn(usize, usize) -> usize) -> Result<Value, String> {
+fn binary_num_op(a: Value, b: Value, func: fn(i64, i64) -> i64) -> Result<Value, String> {
     match (&a, &b) {
         (Value::Atom(Atom::Num(num_a)), Value::Atom(Atom::Num(num_b))) => {
             Ok(Value::Atom(Atom::Num(func(*num_a, *num_b))))
