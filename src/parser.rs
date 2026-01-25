@@ -99,27 +99,27 @@ enum SpecialForm {
 
 fn quote(obj: Sexpr<Atom>) -> Sexpr<Atom> {
     Sexpr::cons(
-        Sexpr::Single(Atom::name("quote")),
+        Sexpr::Single(Atom::symbol("quote")),
         Sexpr::cons(obj, Sexpr::nil()),
     )
 }
 
 fn bind(obj: Sexpr<Atom>) -> Sexpr<Atom> {
     Sexpr::cons(
-        Sexpr::Single(Atom::name("quote")),
+        Sexpr::Single(Atom::symbol("quote")),
         Sexpr::cons(
             obj,
-            Sexpr::cons(Sexpr::Single(Atom::name("pop")), Sexpr::nil()),
+            Sexpr::cons(Sexpr::Single(Atom::symbol("pop")), Sexpr::nil()),
         ),
     )
 }
 
 fn resolve(obj: Sexpr<Atom>) -> Sexpr<Atom> {
     Sexpr::cons(
-        Sexpr::Single(Atom::name("quote")),
+        Sexpr::Single(Atom::symbol("quote")),
         Sexpr::cons(
             obj,
-            Sexpr::cons(Sexpr::Single(Atom::name("push")), Sexpr::nil()),
+            Sexpr::cons(Sexpr::Single(Atom::symbol("push")), Sexpr::nil()),
         ),
     )
 }
@@ -183,8 +183,8 @@ pub fn read(mut tokens: VecDeque<Token>) -> Result<Sexpr<Atom>, String> {
                 let obj = Sexpr::Single(Atom::Num(int));
                 emit(&mut stack, obj)?;
             }
-            Token::Literal(name) => {
-                let obj = Sexpr::Single(Atom::Name(name));
+            Token::Literal(symbol) => {
+                let obj = Sexpr::Single(Atom::Symbol(symbol));
                 emit(&mut stack, obj)?;
             }
 
@@ -243,14 +243,14 @@ pub fn parse(mut atoms: Sexpr<Atom>) -> Result<VecDeque<vm::Instruction>, String
             do_quote = false;
         } else {
             let instruction = match atom {
-                Sexpr::Single(Atom::Name(name)) if name == "quote" => {
+                Sexpr::Single(Atom::Symbol(symbol)) if symbol == "quote" => {
                     do_quote = true;
                     None
                 }
-                Sexpr::Single(Atom::Name(name)) => {
-                    let instruction = try_parse(&name)
+                Sexpr::Single(Atom::Symbol(symbol)) => {
+                    let instruction = try_parse(&symbol)
                         .map_or_else(
-                            || vm::Instruction::Call(name),
+                            || vm::Instruction::Call(symbol),
                             |prim| vm::Instruction::ApplyPrimitive(prim)
                         );
                     Some(instruction)
@@ -436,14 +436,14 @@ mod tests {
     }
 
     #[test]
-    fn read_name_list() {
+    fn read_symbol_list() {
         let program = read(scan("(a b c)")).unwrap();
         let line = Sexpr::car(&program).expect("Program should have at least one line");
         let expected = Sexpr::cons(
-            Sexpr::Single(Atom::Name("a".into())),
+            Sexpr::Single(Atom::Symbol("a".into())),
             Sexpr::cons(
-                Sexpr::Single(Atom::Name("b".into())),
-                Sexpr::cons(Sexpr::Single(Atom::Name("c".into())), Sexpr::nil()),
+                Sexpr::Single(Atom::Symbol("b".into())),
+                Sexpr::cons(Sexpr::Single(Atom::Symbol("c".into())), Sexpr::nil()),
             ),
         );
         assert_eq!(line, expected)
@@ -453,12 +453,12 @@ mod tests {
         let program = read(scan("($x x)")).unwrap();
         let line = Sexpr::car(&program).expect("Program should have at least one line");
         let expected = Sexpr::cons(
-            Sexpr::Single(Atom::Name("quote".into())),
+            Sexpr::Single(Atom::Symbol("quote".into())),
             Sexpr::cons(
-                Sexpr::Single(Atom::Name("x".into())),
+                Sexpr::Single(Atom::Symbol("x".into())),
                 Sexpr::cons(
-                    Sexpr::Single(Atom::Name("pop".into())),
-                    Sexpr::cons(Sexpr::Single(Atom::Name("x".into())), Sexpr::nil()),
+                    Sexpr::Single(Atom::Symbol("pop".into())),
+                    Sexpr::cons(Sexpr::Single(Atom::Symbol("x".into())), Sexpr::nil()),
                 ),
             ),
         );
@@ -589,7 +589,7 @@ mod tests {
         let input = "'foo";
         let parsed = parse_str(input);
         let expected = VecDeque::from([
-            vm::Instruction::PushValue(vm::Value::Atom(Atom::Name("foo".into())))
+            vm::Instruction::PushValue(vm::Value::Atom(Atom::Symbol("foo".into())))
         ]);
         assert_eq!(parsed, expected);
     }
@@ -599,7 +599,7 @@ mod tests {
         let input = "$foo";
         let parsed = parse_str(input);
         let expected = VecDeque::from([
-            vm::Instruction::PushValue(vm::Value::Atom(Atom::Name("foo".into()))),
+            vm::Instruction::PushValue(vm::Value::Atom(Atom::Symbol("foo".into()))),
             vm::Instruction::ApplyPrimitive(Primitive::Pop),
         ]);
         assert_eq!(parsed, expected);
@@ -610,7 +610,7 @@ mod tests {
         let input = "^foo";
         let parsed = parse_str(input);
         let expected = VecDeque::from([
-            vm::Instruction::PushValue(vm::Value::Atom(Atom::Name("foo".into()))),
+            vm::Instruction::PushValue(vm::Value::Atom(Atom::Symbol("foo".into()))),
             vm::Instruction::ApplyPrimitive(Primitive::Push),
         ]);
         assert_eq!(parsed, expected);
@@ -621,9 +621,9 @@ mod tests {
         let input = "'(a b c)";
         let parsed = parse_str(input);
         let list = Sexpr::from_vec(vec![
-            vm::Value::Atom(Atom::Name("c".into())),
-            vm::Value::Atom(Atom::Name("b".into())),
-            vm::Value::Atom(Atom::Name("a".into())),
+            vm::Value::Atom(Atom::Symbol("c".into())),
+            vm::Value::Atom(Atom::Symbol("b".into())),
+            vm::Value::Atom(Atom::Symbol("a".into())),
         ]);
         let expected = VecDeque::from([
             vm::Instruction::PushValue(vm::Value::Sexpr(Box::new(list)))
@@ -637,17 +637,17 @@ mod tests {
         let parsed = parse_str(input);
 
         let dup_instructions = VecDeque::from([
-            vm::Instruction::PushValue(vm::Value::Atom(Atom::Name("x".into()))),
+            vm::Instruction::PushValue(vm::Value::Atom(Atom::Symbol("x".into()))),
             vm::Instruction::ApplyPrimitive(Primitive::Pop),
-            vm::Instruction::PushValue(vm::Value::Atom(Atom::Name("x".into()))),
+            vm::Instruction::PushValue(vm::Value::Atom(Atom::Symbol("x".into()))),
             vm::Instruction::ApplyPrimitive(Primitive::Push),
-            vm::Instruction::PushValue(vm::Value::Atom(Atom::Name("x".into()))),
+            vm::Instruction::PushValue(vm::Value::Atom(Atom::Symbol("x".into()))),
             vm::Instruction::ApplyPrimitive(Primitive::Push),
         ]);
 
         let expected = VecDeque::from([
             vm::Instruction::MakeClosure(dup_instructions),
-            vm::Instruction::PushValue(vm::Value::Atom(Atom::Name("dup".into()))),
+            vm::Instruction::PushValue(vm::Value::Atom(Atom::Symbol("dup".into()))),
             vm::Instruction::ApplyPrimitive(Primitive::Pop),
         ]);
 

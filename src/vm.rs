@@ -16,8 +16,8 @@ pub enum Value {
 }
 
 impl Value {
-    fn make_name(name: impl Into<String>) -> Value {
-        Value::Atom(Atom::Name(name.into()))
+    fn make_symbol(symbol: impl Into<String>) -> Value {
+        Value::Atom(Atom::Symbol(symbol.into()))
     }
 
     fn cons(car: Value, cdr: Value) -> Value {
@@ -86,7 +86,7 @@ impl From<Env<Value>> for Sexpr<Value> {
             .0
             .into_iter()
             .map(|(key, value): (String, Value)| {
-                let key = Sexpr::Single(Value::make_name(key));
+                let key = Sexpr::Single(Value::make_symbol(key));
                 let value = Sexpr::Single(value);
                 let pair = Sexpr::cons(key, value);
                 Box::new(pair)
@@ -138,7 +138,7 @@ impl std::fmt::Display for Instruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Instruction::ApplyPrimitive(primitive) => write!(f, "APPLY<{primitive}>"),
-            Instruction::Call(name) => write!(f, "CALL<{name}>"),
+            Instruction::Call(symbol) => write!(f, "CALL<{symbol}>"),
             Instruction::MakeClosure(instructions) => {
                 let instructions: Sexpr<Instruction> = Vec::from(instructions.clone()).into();
                 write!(f, "MAKE_CLOSURE<{instructions}>")
@@ -153,12 +153,12 @@ impl std::fmt::Display for Instruction {
 fn prim_push(vm: &mut VM) -> VMStatus {
     (|| {
         let key = vm.pop_value()?;
-        if let Value::Atom(Atom::Name(key)) = key {
+        if let Value::Atom(Atom::Symbol(key)) = key {
             let value = vm.env().find(&key).cloned()?;
             vm.push_value(value);
             Ok(VMStatus::Continue)
         } else {
-            Err("Push expects key to be Value::Atom(Atom::Name)".into())
+            Err("Push expects key to be Value::Atom(Atom::Symbol)".into())
         }
     })()
     .unwrap_or_else(|err: String| VMStatus::Invalid(format!("cons failed: {err}")))
@@ -167,11 +167,11 @@ fn prim_push(vm: &mut VM) -> VMStatus {
 fn prim_pop(vm: &mut VM) -> VMStatus {
     (|| {
         let (key, value) = vm.pop2_values()?;
-        if let Value::Atom(Atom::Name(key)) = key {
+        if let Value::Atom(Atom::Symbol(key)) = key {
             vm.env_mut().define_mut(key, value);
             Ok(VMStatus::Continue)
         } else {
-            Err("Pop expects key to be Value::Atom(Atom::Name)".into())
+            Err("Pop expects key to be Value::Atom(Atom::Symbol)".into())
         }
     })()
     .unwrap_or_else(|err: String| VMStatus::Invalid(format!("pop failed: {err}")))
@@ -181,7 +181,7 @@ fn prim_eq(vm: &mut VM) -> VMStatus {
     (|| {
         let (a, b) = vm.pop2_values()?;
         let result = if a == b {
-            Value::make_name("t")
+            Value::make_symbol("t")
         } else {
             Value::nil()
         };
@@ -224,7 +224,7 @@ fn prim_cdr(vm: &mut VM) -> VMStatus {
 fn prim_cswap(vm: &mut VM) -> VMStatus {
     (|| {
         let top = vm.pop_value()?;
-        if top == Value::make_name("t") {
+        if top == Value::make_symbol("t") {
             let (a, b) = vm.pop2_values()?;
             vm.push_value(a);
             vm.push_value(b);
@@ -492,8 +492,8 @@ impl VM {
     fn eval_instruction(&mut self, instruction: Instruction) -> VMStatus {
         match instruction {
             Instruction::ApplyPrimitive(prim) => self.apply_primitive(&prim),
-            Instruction::Call(name) => {
-                let value = self.env().find(&name).cloned();
+            Instruction::Call(symbol) => {
+                let value = self.env().find(&symbol).cloned();
                 match value {
                     Ok(value) => {
                         match value {
@@ -573,18 +573,18 @@ mod tests {
         let mut vm = VM::new();
 
         let dup_instructions: VecDeque<Instruction> = VecDeque::from([
-            Instruction::PushValue(Value::Atom(Atom::Name("x".into()))),
+            Instruction::PushValue(Value::Atom(Atom::Symbol("x".into()))),
             Instruction::ApplyPrimitive(Primitive::Pop),
-            Instruction::PushValue(Value::Atom(Atom::Name("x".into()))),
+            Instruction::PushValue(Value::Atom(Atom::Symbol("x".into()))),
             Instruction::ApplyPrimitive(Primitive::Push),
-            Instruction::PushValue(Value::Atom(Atom::Name("x".into()))),
+            Instruction::PushValue(Value::Atom(Atom::Symbol("x".into()))),
             Instruction::ApplyPrimitive(Primitive::Push),
         ]);
 
         let one = Value::Atom(Atom::Num(1));
         let instructions: VecDeque<Instruction> = VecDeque::from([
             Instruction::MakeClosure(dup_instructions),
-            Instruction::PushValue(Value::Atom(Atom::Name("dup".into()))),
+            Instruction::PushValue(Value::Atom(Atom::Symbol("dup".into()))),
             Instruction::ApplyPrimitive(Primitive::Pop),
             Instruction::PushValue(one.clone()),
             Instruction::Call("dup".to_owned()),

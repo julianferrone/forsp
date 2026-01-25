@@ -9,16 +9,16 @@ Syntax | Parsed as      | Semantics
 'foo   | quote foo      | The quoted literal (foo) is pushed to the stack
 $foo   | quote foo pop  | A value will be popped from the stack and bound to 
        |                | "foo" in the environment
-^foo   | quote foo push | The name "foo" will be resolved in current 
+^foo   | quote foo push | The symbol "foo" will be resolved in current 
        |                | environment and pushed to the stack
 
 CORE: Primitives needed to self-implement
 
 primitive [args]    | description                           | example usage
 --------------------+---------------------------------------+--------------
-push  [$name]       | resolve "name" in environment and     | 'foo push
+push  [$symbol]       | resolve "symbol" in environment and     | 'foo push
                     | push to the top of the stack          |
-pop   [$name $val]  | bind "val" to "name" in environment   | 'foo pop
+pop   [$symbol $val]  | bind "val" to "symbol" in environment   | 'foo pop
 eq    [$a $b]       | if "a" and "b" are equal, then "t",   | 'a 'b eq
                     | else '()'                             |
 cons  [$fst $snd]   | construct a pair from "fst" and "snd" | '(2 3) 1 cons

@@ -8,20 +8,20 @@ use std::fmt::Display;
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Atom {
-    Name(String),
+    Symbol(String),
     Num(i64),
 }
 
 impl Atom {
-    pub fn name(name: &str) -> Atom {
-        Atom::Name(name.into())
+    pub fn symbol(symbol: &str) -> Atom {
+        Atom::Symbol(symbol.into())
     }
 }
 
 impl Display for Atom {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Atom::Name(name) => write!(f, "{}", name),
+            Atom::Symbol(symbol) => write!(f, "{}", symbol),
             Atom::Num(num) => write!(f, "{}", num),
         }
     }

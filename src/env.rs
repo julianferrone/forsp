@@ -51,11 +51,11 @@ impl<T: std::convert::From<Primitive>> Env<T> {
         env
     }
 
-    pub fn define_prim_mut(self: &mut Env<T>, name: impl Into<String>, prim: impl Into<T>) {
-        self.define_mut(name.into(), prim.into())
+    pub fn define_prim_mut(self: &mut Env<T>, symbol: impl Into<String>, prim: impl Into<T>) {
+        self.define_mut(symbol.into(), prim.into())
     }
 
-    pub fn define_prim(self: Env<T>, name: impl Into<String>, prim: impl Into<T>) -> Env<T> {
-        self.define(name.into(), prim.into())
+    pub fn define_prim(self: Env<T>, symbol: impl Into<String>, prim: impl Into<T>) -> Env<T> {
+        self.define(symbol.into(), prim.into())
     }
 }

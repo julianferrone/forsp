@@ -28,8 +28,8 @@ impl Value {
         }
     }
 
-    pub fn make_name(name: impl Into<String>) -> Value {
-        Atom::Name(name.into()).into()
+    pub fn make_symbol(symbol: impl Into<String>) -> Value {
+        Atom::Symbol(symbol.into()).into()
     }
 
     fn make_closure(body: Value, env: Env<Value>) -> Value {
@@ -122,7 +122,7 @@ impl From<Env<Value>> for Value {
             .0
             .into_iter()
             .map(|(key, value): (String, Value)| {
-                let key = Box::new(Sexpr::Single(Value::make_name(key)));
+                let key = Box::new(Sexpr::Single(Value::make_symbol(key)));
                 let value = Box::new(Sexpr::Single(value.clone()));
                 let pair = Sexpr::List(vec![key, value]);
                 Box::new(pair)
@@ -145,7 +145,7 @@ impl std::fmt::Display for Value {
         while let Some(task) = stack.pop() {
             match task {
                 Task::PrintObject(obj) => match obj {
-                    Value::Atom(name) => write!(f, "{name}")?,
+                    Value::Atom(symbol) => write!(f, "{symbol}")?,
                     Value::Closure(Closure {
                         instructions: body,
                         env: _env,
@@ -296,7 +296,7 @@ impl State {
                         Some(cmd_box) => {
                             let cmd_value: Value = (*cmd_box.clone()).into();
                             match cmd_value {
-                                Value::Atom(Atom::Name(name)) if name == "quote" => {
+                                Value::Atom(Atom::Symbol(symbol)) if symbol == "quote" => {
                                     match comp.pop().to_owned() {
                                         Some(to_quote) => {
                                             let quoted: Value = (*to_quote).into();
@@ -324,8 +324,8 @@ impl State {
     pub fn eval(self, expr: Value) -> State {
         match expr {
             Value::Atom(ref atom) => match atom {
-                Atom::Name(name) => {
-                    let value: Result<Value, String> = self.env.find(&name).cloned();
+                Atom::Symbol(symbol) => {
+                    let value: Result<Value, String> = self.env.find(&symbol).cloned();
 
                     match value {
                         Ok(Value::Primitive(func)) => self.apply_primitive(func),
@@ -399,22 +399,22 @@ fn get_primitive_function(primitive: Primitive) -> fn(State, Env<Value>) -> Resu
 
 fn prim_push(state: State, env: Env<Value>) -> Result<State, String> {
     let (key, state) = state.pop()?;
-    if let Value::Atom(Atom::Name(name)) = key {
-        let value = env.find(&name)?;
+    if let Value::Atom(Atom::Symbol(symbol)) = key {
+        let value = env.find(&symbol)?;
         Ok(state.push(value.clone()))
     } else {
-        Err("push expects the top of the stack to be a Value::Atom(Atom::Name)".into())
+        Err("push expects the top of the stack to be a Value::Atom(Atom::Symbol)".into())
     }
 }
 
 fn prim_pop(state: State, env: Env<Value>) -> Result<State, String> {
     let ((key, value), state) = state.pop2()?;
-    if let Value::Atom(Atom::Name(name)) = key {
-        let env = env.define(name, value);
+    if let Value::Atom(Atom::Symbol(symbol)) = key {
+        let env = env.define(symbol, value);
         Ok(State { env: env, ..state })
     } else {
         let msg = format!(
-            "prim_pop expects the top of the stack to be Value::Atom(Atom::Name), got {key:?}"
+            "prim_pop expects the top of the stack to be Value::Atom(Atom::Symbol), got {key:?}"
         );
         Err(msg)
     }
@@ -423,7 +423,7 @@ fn prim_pop(state: State, env: Env<Value>) -> Result<State, String> {
 fn prim_eq(state: State, _env: Env<Value>) -> Result<State, String> {
     let ((a, b), state) = state.pop2()?;
     let result = if a == b {
-        Value::make_name("t")
+        Value::make_symbol("t")
     } else {
         Value::nil()
     };
@@ -450,7 +450,7 @@ fn prim_cdr(state: State, _env: Env<Value>) -> Result<State, String> {
 
 fn prim_cswap(state: State, _env: Env<Value>) -> Result<State, String> {
     let (top, state) = state.pop()?;
-    let new_state = if top == Value::make_name("t") {
+    let new_state = if top == Value::make_symbol("t") {
         let ((a, b), state) = state.pop2()?;
         state.push(a).push(b)
     } else {
@@ -563,10 +563,10 @@ mod tests {
     }
 
     #[test]
-    fn run_put_quoted_name() {
+    fn run_put_quoted_symbol() {
         let state = interpret_from_new("'a");
         let (result, _state) = state.pop().expect("Should be Ok");
-        assert_eq!(result, Value::Atom(Atom::Name("a".into())))
+        assert_eq!(result, Value::Atom(Atom::Symbol("a".into())))
     }
 
     #[test]
